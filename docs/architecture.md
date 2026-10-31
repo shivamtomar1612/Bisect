@@ -36,7 +36,7 @@ The immutable verifier uses exact native-ETH wei amounts. It has no fee, treasur
 
 ## Services
 
-- **VM/Merkle packages:** canonical encoding, bounded execution, trace construction, and Merkle membership proofs. Planned; no production functionality is claimed yet.
+- **VM package:** bounded VM v1 execution, canonical ABI/Keccak encodings, fixed-length trace generation, trace roots, proofs, and CLI are implemented and tested against TypeScript known-answer vectors. The dedicated Merkle package and Solidity cross-language verification remain planned.
 - **Verifier contract:** authority for claims, games, deadlines, and credits. Specified, not yet implemented/deployed.
 - **Challenger:** independently recomputes traces, watches claims, and answers games with an isolated signer. Planned; availability and key custody are operator responsibilities.
 - **Indexer:** consumes public events and handles reorgs; data is derived and rebuildable. It is not a correctness authority.

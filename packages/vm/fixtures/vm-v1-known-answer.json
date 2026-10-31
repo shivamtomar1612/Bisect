@@ -1,0 +1,13 @@
+{
+  "specification": "BISECT protocol/VM/encoding v1",
+  "programHex": "0x010100050300000109000000",
+  "publicInput": ["7", "0", "0", "0", "0", "0", "0", "0"],
+  "transitionCount": 63,
+  "leafCount": 64,
+  "haltIndex": 3,
+  "output": "12",
+  "programHash": "0x8bd430809f10829961294def8579777a20e40b810d836430474ae9057f8e6358",
+  "inputHash": "0x464bf222191dd4ea41e5ef60a4851174e04041d1e8cf0b965dfc4c674323c839",
+  "executionContextHash": "0x7bfc5975e2f7dd1b5d039092fb4015540aa8fea2ae8d7b38623989e5d98a39b0",
+  "traceRoot": "0x7f4f87083aaa2914d8a9619cb507bcc6fc48611baf9c2c6d21509040e4199f0a"
+}

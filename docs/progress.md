@@ -1,5 +1,35 @@
 # Development progress
 
+## 2026-10-31 — Phase 1 VM v1 engine
+
+### Completed
+
+- Replaced the empty VM placeholder with strict TypeScript modules for canonical program parsing/validation, instruction decoding, immutable state construction, one-step execution, exact transition verification, bounded execution, fixed-length trace generation, output calculation, JSON serialization, v1 ABI/Keccak encodings, ordered Merkle roots/proofs, and typed errors.
+- Implemented all ten locked opcodes with BigInt uint64 arithmetic and explicit modulo-2^64 wrapping. Validation follows the locked error precedence and validates unreachable instructions and both possible JNZ successors.
+- Added readable assembly/disassembly, labels, and example builders for increment, addition, multiplication, sum, iterative Fibonacci, factorial, nontermination, invalid opcode, and malformed operands.
+- Added the pnpm bisect vm CLI commands validate, run, trace, inspect, and disassemble. A successful run requires HALT; trace generation can produce the valid bounded non-halting trace needed by challenger-side analysis.
+- Added deterministic unit, encoding/vector, Merkle proof, seeded randomized-program, boundary, and CLI coverage. The generated package build emits JS and declarations to ignored packages/vm/dist.
+- Updated README, architecture, engineering stage, requirements status, and implementation decision documentation. No Solidity verifier or blockchain interaction was added to the VM package.
+
+### Verification
+
+- Frozen workspace install — passed inside pnpm check:all.
+- Lint and formatting checks — passed inside pnpm check:all.
+- Workspace typecheck — passed for all packages, including @bisect/vm.
+- Unit tests — passed: 29 tests across 2 files. VM tests cover all opcodes, arithmetic wrapping, invalid register/PC/program/input cases, closed-ISA rejection, branch semantics, stuttering, all four trace budgets, non-halting traces, deterministic replay, example results, and seeded randomized valid programs.
+- Production build — passed: VM TypeScript build and Next.js production build.
+- Protocol known-answer fixture checks — passed for every domain hash, canonical input ABI bytes, program/input/context hashes, sampled state and leaf hashes, final proof siblings, and the 64-state trace root from docs/protocol-vectors.json.
+- CLI smoke runs — passed for all five requested subcommands. A max-uint64 multiplication input read from JSON produced the exact wrapped output 18446744073709551614.
+- pnpm check:all — passed with exit code 0, including 28 tests at that point. It also passed Docker/PostgreSQL health, Prisma validation/generation/migration/read-write/restart persistence, Base Sepolia RPC chain ID 84532, local Anvil chain ID 31337, Foundry build and 1 contract smoke test, and Playwright Chromium (1 test).
+- After adding the final closed-ISA rejection test, pnpm lint, pnpm format:check, and pnpm test were rerun; lint and formatting passed, and all 29 tests passed.
+
+### Limits and remaining risks
+
+- VM v1 has TypeScript implementation and known-answer coverage, but no Solidity VM/verifier exists yet, so cross-language transition and hash parity is not established.
+- Property-style randomized tests are deterministic and seeded; they are not exhaustive or a formal proof.
+- Merkle roots and proofs authenticate commitments under the locked Keccak/ABI assumptions; they do not prove execution correctness without the future dispute verifier.
+- BISECT remains unaudited. No protocol contract is deployed, and the challenger, indexer, wallet transaction flow, and production data-availability operations remain planned.
+
 ## 2026-10-31 — BISECT protocol v1 specification lock
 
 ### Completed

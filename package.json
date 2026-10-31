@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @bisect/web dev",
-    "build": "pnpm --filter @bisect/web run build",
+    "build": "pnpm --filter @bisect/vm run build && pnpm --filter @bisect/web run build",
     "lint": "biome check .",
     "format": "biome format --write .",
     "format:check": "biome format .",
@@ -30,7 +30,8 @@
     "db:restart-check": "node scripts/check-db-restart.mjs",
     "check:base-sepolia": "node scripts/check-base-sepolia.mjs",
     "check:environment": "node scripts/check-environment.mjs",
-    "check:all": "node scripts/check-all.mjs"
+    "check:all": "node scripts/check-all.mjs",
+    "bisect": "node scripts/bisect.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.4",

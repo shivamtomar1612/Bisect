@@ -42,4 +42,4 @@ At the end of each phase:
 
 ## Current project stage
 
-The initial phase establishes workspace and protocol documentation only. Until the relevant component is implemented, do not claim that VM execution, Merkle commitments, dispute resolution, indexing, wallet connectivity, PostgreSQL persistence, or Base Sepolia deployment works.
+Protocol v1 is specified and locked. The TypeScript VM v1, canonical off-chain encodings, trace-root/Merkle proof helpers, examples, and CLI are implemented with unit and known-answer tests. The Solidity dispute verifier, on-chain financial state transitions, challenger/indexer behavior, wallet connectivity, and Base Sepolia deployment remain unimplemented. PostgreSQL is available only for the verified Phase 0 environment check, not protocol persistence. Do not claim cross-language contract compatibility, deployment, or audit coverage without evidence.

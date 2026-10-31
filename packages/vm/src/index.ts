@@ -1,2 +1,9 @@
-// The VM ISA and resource bounds are not finalized; execution is intentionally absent.
-export {};
+export * from "./assembler.js";
+export * from "./encoding.js";
+export * from "./errors.js";
+export * from "./examples.js";
+export * from "./executor.js";
+export * from "./machine.js";
+export * from "./program.js";
+export * from "./state.js";
+export * from "./types.js";

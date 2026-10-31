@@ -44,6 +44,13 @@ Material protocol choices below are accepted and locked for v1. Implementations 
 - **Reason:** A claim must not change meaning while its challenge window or game is active.
 - **Consequences:** No admin pause, migration, or semantic hotfix exists for v1. Fixes to contract implementation require a new reviewed deployment; any correction to normative documents is versioned and accompanied by vectors.
 
+## ADR-0007: TypeScript VM encoding implementation
+
+- **Status:** Accepted, 2026-10-31
+- **Decision:** The VM package uses the lockfile-pinned viem ABI encoder and Ethereum Keccak implementation for canonical v1 commitments rather than maintaining a custom ABI/Keccak implementation. It declares its dependency directly and independently from the SDK.
+- **Reason:** The locked formats are Solidity ABI and EVM Keccak; a maintained EVM library reduces custom cryptographic/serialization code while the published known-answer vectors remain the compatibility check.
+- **Consequences:** The VM package has no wallet, provider, or contract calls. Any future viem upgrade must keep every encoding/hash vector byte-identical.
+
 ## Open release/operations decisions
 
 These are deployment and service choices, not undefined v1 state transitions:
