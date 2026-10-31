@@ -1,0 +1,17 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["apps/web/src"],
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": ["Select/Listbox", "Scrollbar"],
+  "ownership": {
+    "Select/Listbox": "native"
+  },
+  "requiredCommands": ["e2e", "accessibility"],
+  "commands": {
+    "e2e": "pnpm e2e",
+    "accessibility": "pnpm web:a11y"
+  },
+  "evidence": {
+    "failurePaths": "tests/e2e/home.spec.ts"
+  }
+}

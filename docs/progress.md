@@ -316,3 +316,30 @@ The repository was empty at initial setup. The initial foundation created one re
 - Confirmation depth is an operational threshold, not finality. The worker assumes one active writer per chain/registry and stops for reorgs deeper than its configured bound. Reconciliation checks at most 1,000 wallets per run and reports an explicit limit discrepancy.
 - The indexer and ledger are derived read models. Contract state remains authoritative. There is no independent audit or production-security claim.
 - Full evidence and assumptions: `docs/phase-8-report.md` and `docs/ledger-reconciliation.md`.
+
+## 2026-11-01 — Phase 9 professional product design system
+
+### Completed
+
+- Replaced the project-stage landing page with a responsive Next.js application shell and routes for Overview, Program Studio, Claims, Disputes, Account Ledger, Documentation, and Settings.
+- Added light/dark semantic color themes, a responsive keyboard-operable navigation drawer, active-route state, skip link, and prefers-reduced-motion behavior.
+- Added shared exact-wei financial display, transaction lifecycle/status, claim/proof states, wallet security notice/dialog, explorer link validation, empty/loading/error panels, financial table, and real search/status filters that remain disabled until records exist.
+- Added read-only injected-wallet account and chain detection. Wallet status does not request signing credentials. Unknown balances remain unavailable and there are no fake transfers, test claims, or chart data.
+- Added root `DESIGN.md`, `UX-CONTRACT.md`, and `premium-ui.json`, updated README/architecture, and documented that registry/indexer data and transaction flows are not yet wired into the frontend.
+
+### Verification
+
+- `pnpm lint --reporter=summary` — passed, zero warnings/errors; remaining Biome findings are informational suggestions.
+- `pnpm format:check` — passed, 145 files checked.
+- `pnpm typecheck` — passed across 7 applicable workspace projects.
+- `pnpm test` — passed, 53 tests across 7 files; includes exact wei formatting boundaries.
+- `pnpm --filter @bisect/web build` — passed; overview and six static section routes rendered.
+- `pnpm e2e` — passed, 8 Chromium tests across desktop/mobile navigation, all routes, wallet status, theme persistence, and dialog behavior.
+- `pnpm web:a11y` — passed; semantic control names and light/dark contrast pairs meet the 4.5:1 check.
+- Frontend design strict audit — passed with zero findings.
+
+### Readiness and limits
+
+- **Phase 9 UI foundation: PASS.** The UI is a design and read-only wallet/status foundation. The frontend does not yet call the indexer API or registry, so account/claim/dispute financial data remains unavailable until a deployed address and integration configuration are supplied.
+- No contract writes, withdrawal flow, real gas estimates, protocol results, independent audit, or Base Sepolia deployment were added or claimed.
+- Full screen/component evidence: `docs/phase-9-report.md`; token and behavior sources: `DESIGN.md` and `UX-CONTRACT.md`.

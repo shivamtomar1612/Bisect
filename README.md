@@ -2,7 +2,7 @@
 
 BISECT is an early-stage optimistic computation verification protocol. A prover will commit to a bounded deterministic execution trace and bond funds; a challenger will be able to dispute a conflicting trace through an interactive bisection game.
 
-**Status: VM v1, ordered Merkle commitments, the Solidity one-step verifier, the integrated v1 dispute registry, and a local PostgreSQL event indexer/ledger are implemented and locally tested.** The registry runs interactive leftmost-difference bisection, verifies the disputed step, and settles native-ETH bonds into pull credits. The indexer exposes confirmed chain-derived read models and an append-only double-entry journal with reconciliation. The project is unaudited and has not been deployed to Base Sepolia; no production-security claim is made. The automatic challenger and wallet UI remain pending.
+**Status: VM v1, ordered Merkle commitments, the Solidity one-step verifier, the integrated v1 dispute registry, a local PostgreSQL event indexer/ledger, and the Phase 9 responsive web shell are implemented and locally tested.** The registry runs interactive leftmost-difference bisection, verifies the disputed step, and settles native-ETH bonds into pull credits. The indexer exposes confirmed chain-derived read models and an append-only double-entry journal with reconciliation. The project is unaudited and has not been deployed to Base Sepolia; no production-security claim is made. Automatic challenge automation and web transaction flows remain pending.
 
 ## Repository layout
 
@@ -36,7 +36,7 @@ pnpm install
 pnpm dev
 ```
 
-The web app is at <http://localhost:3000>. It currently identifies the project phase and target chain; it does not connect a wallet or send transactions.
+The web app is at <http://localhost:3000>. It includes overview, program, claim, dispute, ledger, documentation, and settings screens; light/dark themes; and a read-only injected-wallet connection status. No contract deployment is configured, and the web app does not send transactions or claim financial activity that has not been indexed.
 
 ## VM CLI
 
@@ -69,6 +69,7 @@ pnpm check:phase5
 pnpm check:phase6
 pnpm check:phase8
 pnpm e2e
+pnpm web:a11y
 pnpm check:all
 ```
 
@@ -84,9 +85,9 @@ The indexer requires explicit `INDEXER_RPC_URL`, `INDEXER_CHAIN_ID`, `INDEXER_CO
 
 ## Protocol status and assumptions
 
-**BISECT protocol v1 is specified and locked.** The VM, off-chain canonical commitments, Merkle proofs, Solidity one-step verifier, bonded claim admission, interactive dispute game, timeout settlement, pull withdrawals, and Phase 8 event indexer/read ledger are implemented. `BisectClaimRegistry` by itself remains fail-closed; `BisectDisputeRegistryV1` is the integrated registry. Local Foundry, Anvil, and PostgreSQL checks provide development evidence only; Base Sepolia deployment, an automatic challenger, wallet UI, and independent audit remain outstanding. The ledger is a derived read model; on-chain contract state remains authoritative. See [docs/phase-6-report.md](docs/phase-6-report.md) and [docs/phase-8-report.md](docs/phase-8-report.md) for actual verification evidence.
+**BISECT protocol v1 is specified and locked.** The VM, off-chain canonical commitments, Merkle proofs, Solidity one-step verifier, bonded claim admission, interactive dispute game, timeout settlement, pull withdrawals, Phase 8 event indexer/read ledger, and Phase 9 web application shell are implemented. `BisectClaimRegistry` by itself remains fail-closed; `BisectDisputeRegistryV1` is the integrated registry. Local Foundry, Anvil, and PostgreSQL checks provide development evidence only; Base Sepolia deployment, an automatic challenger, web transaction flows, and independent audit remain outstanding. The ledger is a derived read model; on-chain contract state remains authoritative. See [docs/phase-6-report.md](docs/phase-6-report.md) and [docs/phase-8-report.md](docs/phase-8-report.md) for actual verification evidence.
 
-The architecture overview is in [docs/architecture.md](docs/architecture.md), engineering decisions in [docs/decisions.md](docs/decisions.md), requirements and evidence in [docs/requirements.md](docs/requirements.md), and verified progress in [docs/progress.md](docs/progress.md).
+The architecture overview is in [docs/architecture.md](docs/architecture.md), engineering decisions in [docs/decisions.md](docs/decisions.md), requirements and evidence in [docs/requirements.md](docs/requirements.md), design tokens in [DESIGN.md](DESIGN.md), interaction contracts in [UX-CONTRACT.md](UX-CONTRACT.md), and verified progress in [docs/progress.md](docs/progress.md).
 
 This is unaudited research and engineering software. It is not production-secure and must not custody real funds.
 
