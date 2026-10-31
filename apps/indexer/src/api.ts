@@ -7,6 +7,7 @@ import { indexerLag } from "./indexer.js";
 
 const maximumLimit = 100;
 const cursorPattern = /^[A-Za-z0-9_-]{1,64}$/;
+const decimalSearchPattern = /^[0-9]{1,78}$/;
 
 function toJsonSafe(value: unknown): unknown {
   if (typeof value === "bigint") return value.toString();
@@ -47,6 +48,31 @@ function parseCursor(url: URL): string | undefined {
   return cursor;
 }
 
+function parseSearch(url: URL): string | undefined {
+  const search = url.searchParams.get("q")?.trim();
+  if (search === undefined || search === "") return undefined;
+  const containsControlCharacter = [...search].some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 31 || code === 127;
+  });
+  if (search.length > 100 || containsControlCharacter) {
+    throw new Error("q must be at most 100 printable characters.");
+  }
+  return search;
+}
+
+const claimStatuses = ["OPEN", "GAME_ACTIVE", "FINALIZED", "REFUTED", "UNKNOWN"] as const;
+const disputeStatuses = ["ACTIVE", "PROVER_WON", "CHALLENGER_WON", "UNKNOWN"] as const;
+
+function parseClaimStatus(url: URL) {
+  const status = url.searchParams.get("status");
+  if (status === null) return undefined;
+  if (!claimStatuses.includes(status as (typeof claimStatuses)[number])) {
+    throw new Error("status is not a recognized claim state.");
+  }
+  return status as (typeof claimStatuses)[number];
+}
+
 function pathIsWalletActivity(path: string): boolean {
   return /^\/v1\/wallets\/[^/]+\/activity$/.test(path);
 }
@@ -69,50 +95,224 @@ function nextPage<T extends { readonly id: string | bigint }>(rows: readonly T[]
 }
 
 async function listClaims(config: IndexerConfig, url: URL, limit: number, cursor?: string) {
-  assertKnownQuery(url, ["limit", "cursor", "address"]);
+  assertKnownQuery(url, ["limit", "cursor", "address", "status", "q"]);
   const address = url.searchParams.get("address");
   const normalized = address === null ? undefined : parseAddress(address);
+  const search = parseSearch(url);
+  const status = parseClaimStatus(url);
   const where = {
     chainId: config.chainId,
     contractAddress: config.contractAddress.toLowerCase(),
+    ...(status === undefined ? {} : { status }),
     ...(normalized === undefined ? {} : { prover: { address: normalized } }),
+    ...(search === undefined
+      ? {}
+      : {
+          OR: [
+            { contextHash: { contains: search, mode: "insensitive" as const } },
+            { traceRoot: { contains: search, mode: "insensitive" as const } },
+            { prover: { address: { contains: search, mode: "insensitive" as const } } },
+            ...(decimalSearchPattern.test(search) ? [{ claimId: new Prisma.Decimal(search) }] : []),
+          ],
+        }),
   };
   const rows = await prisma.claim.findMany({
     where,
     orderBy: [{ submittedBlock: "desc" }, { id: "desc" }],
     take: limit + 1,
     ...(cursor === undefined ? {} : { cursor: { id: cursor }, skip: 1 }),
-    include: { prover: { select: { address: true } } },
+    include: {
+      prover: { select: { address: true } },
+      deposits: {
+        where: { kind: "PROVER" },
+        select: { amountWei: true, status: true },
+      },
+      disputes: { select: { gameNumber: true, status: true, bisectionRounds: true } },
+    },
   });
-  return nextPage(rows, limit);
+  const events = await prisma.chainEvent.findMany({
+    where: { id: { in: rows.map((row) => row.sourceEventId) }, status: "CONFIRMED" },
+    select: { id: true, eventName: true, blockNumber: true, transactionHash: true, logIndex: true },
+  });
+  const eventById = new Map(events.map((event) => [event.id.toString(), event]));
+  return nextPage(
+    rows.map((row) => ({
+      ...row,
+      sourceEvent: eventById.get(row.sourceEventId.toString()) ?? null,
+    })),
+    limit,
+  );
 }
 
 async function listDisputes(config: IndexerConfig, url: URL, limit: number, cursor?: string) {
-  assertKnownQuery(url, ["limit", "cursor", "address", "status"]);
+  assertKnownQuery(url, ["limit", "cursor", "address", "status", "q"]);
   const address = url.searchParams.get("address");
   const normalized = address === null ? undefined : parseAddress(address);
   const status = url.searchParams.get("status");
-  if (status !== null && !["ACTIVE", "PROVER_WON", "CHALLENGER_WON", "UNKNOWN"].includes(status)) {
+  if (status !== null && !disputeStatuses.includes(status as (typeof disputeStatuses)[number])) {
     throw new Error("status is not a recognized dispute state.");
   }
+  const search = parseSearch(url);
   const rows = await prisma.dispute.findMany({
     where: {
       chainId: config.chainId,
       contractAddress: config.contractAddress.toLowerCase(),
       ...(normalized === undefined ? {} : { challenger: { address: normalized } }),
-      ...(status === null
+      ...(status === null ? {} : { status: status as (typeof disputeStatuses)[number] }),
+      ...(search === undefined
         ? {}
-        : { status: status as "ACTIVE" | "PROVER_WON" | "CHALLENGER_WON" | "UNKNOWN" }),
+        : {
+            OR: [
+              { challengerRoot: { contains: search, mode: "insensitive" as const } },
+              { challenger: { address: { contains: search, mode: "insensitive" as const } } },
+              ...(decimalSearchPattern.test(search)
+                ? [
+                    { claimId: new Prisma.Decimal(search) },
+                    { gameNumber: new Prisma.Decimal(search) },
+                  ]
+                : []),
+            ],
+          }),
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit + 1,
     ...(cursor === undefined ? {} : { cursor: { id: cursor }, skip: 1 }),
     include: {
       challenger: { select: { address: true } },
-      claim: { select: { claimId: true, traceRoot: true, status: true } },
+      claim: {
+        select: {
+          claimId: true,
+          traceRoot: true,
+          status: true,
+          prover: { select: { address: true } },
+        },
+      },
+      deposits: { where: { kind: "CHALLENGER" }, select: { amountWei: true, status: true } },
+      settlements: {
+        select: {
+          kind: true,
+          outcome: true,
+          amountWei: true,
+          blockNumber: true,
+          transactionHash: true,
+          beneficiary: { select: { address: true } },
+        },
+      },
     },
   });
-  return nextPage(rows, limit);
+  const events = await prisma.chainEvent.findMany({
+    where: { id: { in: rows.map((row) => row.sourceEventId) }, status: "CONFIRMED" },
+    select: { id: true, eventName: true, blockNumber: true, transactionHash: true, logIndex: true },
+  });
+  const eventById = new Map(events.map((event) => [event.id.toString(), event]));
+  return nextPage(
+    rows.map((row) => ({
+      ...row,
+      sourceEvent: eventById.get(row.sourceEventId.toString()) ?? null,
+    })),
+    limit,
+  );
+}
+
+async function claimDetail(config: IndexerConfig, rawClaimId: string) {
+  if (!/^(0|[1-9][0-9]{0,77})$/.test(rawClaimId))
+    throw new Error("claim ID must be a uint256 decimal.");
+  if (BigInt(rawClaimId) > (1n << 256n) - 1n) throw new Error("claim ID exceeds uint256.");
+  const row = await prisma.claim.findUnique({
+    where: {
+      chainId_contractAddress_claimId: {
+        chainId: config.chainId,
+        contractAddress: config.contractAddress.toLowerCase(),
+        claimId: new Prisma.Decimal(rawClaimId),
+      },
+    },
+    include: {
+      prover: { select: { address: true } },
+      deposits: { where: { kind: "PROVER" }, select: { amountWei: true, status: true } },
+      disputes: { select: { gameNumber: true, status: true, bisectionRounds: true } },
+    },
+  });
+  if (row === null) return null;
+  const sourceEvent = await prisma.chainEvent.findFirst({
+    where: { id: row.sourceEventId, status: "CONFIRMED" },
+    select: {
+      eventName: true,
+      blockNumber: true,
+      transactionHash: true,
+      logIndex: true,
+      block: { select: { hash: true, timestamp: true } },
+    },
+  });
+  return { ...row, sourceEvent };
+}
+
+async function overview(config: IndexerConfig) {
+  const where = { chainId: config.chainId, contractAddress: config.contractAddress.toLowerCase() };
+  const [
+    totalClaims,
+    activeDisputes,
+    completedDisputes,
+    verifiedResults,
+    exposure,
+    checkpoint,
+    lag,
+    recentActivity,
+  ] = await Promise.all([
+    prisma.claim.count({ where }),
+    prisma.dispute.count({ where: { ...where, status: "ACTIVE" } }),
+    prisma.dispute.count({ where: { ...where, status: { in: ["PROVER_WON", "CHALLENGER_WON"] } } }),
+    prisma.claim.count({ where: { ...where, status: "FINALIZED" } }),
+    prisma.bondDeposit.aggregate({
+      where: { ...where, status: "LOCKED" },
+      _sum: { amountWei: true },
+    }),
+    prisma.indexerCheckpoint.findUnique({
+      where: {
+        chainId_contractAddress: {
+          chainId: config.chainId,
+          contractAddress: config.contractAddress.toLowerCase(),
+        },
+      },
+    }),
+    indexerLag(config),
+    prisma.chainEvent.findMany({
+      where: { ...where, status: "CONFIRMED" },
+      orderBy: [{ blockNumber: "desc" }, { transactionIndex: "desc" }, { logIndex: "desc" }],
+      take: 8,
+      select: {
+        eventName: true,
+        blockNumber: true,
+        transactionHash: true,
+        logIndex: true,
+        block: { select: { timestamp: true } },
+      },
+    }),
+  ]);
+  return {
+    chainId: config.chainId,
+    contractAddress: config.contractAddress.toLowerCase(),
+    confirmationDepth: config.confirmations,
+    metrics: {
+      totalClaims,
+      activeDisputes,
+      completedDisputes,
+      verifiedResults,
+      lockedExposureWei: exposure._sum.amountWei?.toFixed(0) ?? "0",
+    },
+    indexer: {
+      deploymentBlock: config.deploymentBlock,
+      checkpoint:
+        checkpoint === null
+          ? null
+          : {
+              lastBlockNumber: checkpoint.lastBlockNumber,
+              confirmedBlock: checkpoint.confirmedBlock,
+              updatedAt: checkpoint.updatedAt,
+            },
+      lag,
+    },
+    recentActivity,
+  };
 }
 
 async function listDeposits(
@@ -408,6 +608,22 @@ async function route(
     });
     return;
   }
+  if (path === "/v1/overview") {
+    assertKnownQuery(url, []);
+    respond(response, 200, await overview(config));
+    return;
+  }
+  const claimDetailMatch = /^\/v1\/claims\/([^/]+)$/.exec(path);
+  if (claimDetailMatch !== null) {
+    assertKnownQuery(url, []);
+    const claim = await claimDetail(config, decodeURIComponent(claimDetailMatch[1] ?? ""));
+    if (claim === null) {
+      respond(response, 404, { error: "claim_not_found" });
+      return;
+    }
+    respond(response, 200, claim);
+    return;
+  }
   if (path === "/v1/claims") {
     respond(response, 200, await listClaims(config, url, limit, cursor));
     return;
@@ -473,9 +689,12 @@ export function createIndexerApi(config: IndexerConfig): Server {
   return createServer((request, response) => {
     void route(config, request, response).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : "Request failed.";
-      const status = /address|cursor|limit|query parameter|status is|malformed/i.test(message)
-        ? 400
-        : 500;
+      const status =
+        /address|claim ID|cursor|limit|query parameter|search query|\bq\b|status is|malformed|uint256/i.test(
+          message,
+        )
+          ? 400
+          : 500;
       respond(response, status, {
         error: status === 400 ? "invalid_request" : "internal_error",
         message: status === 400 ? message : undefined,

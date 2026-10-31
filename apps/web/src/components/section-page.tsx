@@ -44,7 +44,7 @@ export const sections = {
 } as const;
 export type SectionKey = keyof typeof sections;
 
-function PageHeader({ section, action }: { section: SectionKey; action?: ReactNode }) {
+export function PageHeader({ section, action }: { section: SectionKey; action?: ReactNode }) {
   const meta = sections[section];
   return (
     <div className="heading">

@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { type SectionKey, SectionPage, sections } from "../../components/section-page";
+import { ClaimsExplorer, DisputesExplorer, ReadDataNotice } from "../../components/explorers";
+import { PageHeader, type SectionKey, SectionPage, sections } from "../../components/section-page";
+import { getClaims, getDisputes } from "../../lib/read-api";
 
-export function generateStaticParams() {
-  return Object.keys(sections)
-    .filter((section) => section !== "overview")
-    .map((section) => ({ section }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
@@ -21,8 +19,52 @@ export async function generateMetadata({
   };
 }
 
-export default async function Page({ params }: { params: Promise<{ section: string }> }) {
+export default async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ section: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { section } = await params;
   if (!Object.hasOwn(sections, section) || section === "overview") notFound();
+  if (section === "claims" || section === "disputes") {
+    const paramsFromUrl = await searchParams;
+    const query = new URLSearchParams();
+    for (const key of ["q", "status", "cursor"] as const) {
+      const value = paramsFromUrl[key];
+      if (typeof value === "string" && value !== "") query.set(key, value);
+    }
+    const queryString = query.size ? `&${query}` : "";
+    const common = {
+      query: typeof paramsFromUrl["q"] === "string" ? paramsFromUrl["q"] : "",
+      status: typeof paramsFromUrl["status"] === "string" ? paramsFromUrl["status"] : "",
+      cursor: typeof paramsFromUrl["cursor"] === "string" ? paramsFromUrl["cursor"] : "",
+    };
+    if (section === "claims") {
+      const result = await getClaims(queryString);
+      return (
+        <div className="page">
+          <PageHeader section="claims" />
+          {result.kind === "ready" ? (
+            <ClaimsExplorer page={result.value} {...common} />
+          ) : result.kind === "not-found" ? null : (
+            <ReadDataNotice result={result} subject="claims" />
+          )}
+        </div>
+      );
+    }
+    const result = await getDisputes(queryString);
+    return (
+      <div className="page">
+        <PageHeader section="disputes" />
+        {result.kind === "ready" ? (
+          <DisputesExplorer page={result.value} {...common} />
+        ) : result.kind === "not-found" ? null : (
+          <ReadDataNotice result={result} subject="disputes" />
+        )}
+      </div>
+    );
+  }
   return <SectionPage section={section as SectionKey} />;
 }

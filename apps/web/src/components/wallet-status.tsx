@@ -63,11 +63,13 @@ export function WalletStatus() {
       <legend className="sr-only">Network and wallet status</legend>
       <Badge tone={chain === 84532 ? "good" : chain ? "warn" : "accent"}>
         <span className="dot" />
-        {chain === 84532
-          ? "Base Sepolia connected"
-          : chain
-            ? "Wrong network"
-            : "Network not detected"}
+        <span className="wallet-network-label">
+          {chain === 84532
+            ? "Base Sepolia connected"
+            : chain
+              ? "Wrong network"
+              : "Network not detected"}
+        </span>
       </Badge>
       <button
         type="button"

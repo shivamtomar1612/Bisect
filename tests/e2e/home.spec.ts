@@ -1,32 +1,45 @@
 import { expect, test } from "@playwright/test";
 
-test("overview describes the real unconfigured testnet state", async ({ page }) => {
+test("landing page explains the protocol and links to its working areas", async ({ page }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /computation deserves a dispute path/i }),
+    page.getByRole("heading", { name: /make outsourced computation publicly challengeable/i }),
   ).toBeVisible();
-  await expect(page.getByText("Testnet workspace.")).toBeVisible();
-  await expect(page.getByText("Not connected").first()).toBeVisible();
-  await expect(page.getByText("Network not detected")).toBeVisible();
+  await expect(page.getByText("BASE SEPOLIA · TESTNET PROTOTYPE")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Trace data must be available" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "An active challenger matters" })).toBeVisible();
   await expect(
-    page.getByRole("navigation", { name: "Main navigation" }).getByRole("link"),
-  ).toHaveCount(7);
+    page.getByText("Illustrative protocol flow. No live claim or proof is shown."),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: /open dashboard/i })).toHaveAttribute(
+    "href",
+    "/dashboard",
+  );
+  await expect(page.getByRole("link", { name: /explore program studio/i })).toHaveAttribute(
+    "href",
+    "/program-studio",
+  );
 });
 
-test("claims screen keeps empty data explicit and unavailable filters disabled", async ({
+test("claims and disputes never present missing indexer data as an empty or successful result", async ({
   page,
 }) => {
   await page.goto("/claims");
   await expect(page.getByRole("heading", { name: "Claims", level: 1 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "No claims indexed" })).toBeVisible();
-  await expect(page.getByLabel("Filter activity")).toBeDisabled();
-  await expect(page.getByLabel("Filter by status")).toBeDisabled();
-  await expect(page.getByText("Filters unlock when records are indexed.")).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: /read api not configured|read api unreachable|indexer or rpc check failed|read api response invalid/i,
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(0);
+  await page.goto("/disputes");
+  await expect(page.getByRole("heading", { name: "Disputes", level: 1 })).toBeVisible();
+  await expect(page.getByRole("table")).toHaveCount(0);
 });
 
 test("theme toggle persists and mobile drawer supports Escape", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
+  await page.goto("/dashboard");
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.evaluate(() => localStorage.getItem("bisect-theme"))).resolves.toBe("dark");
@@ -49,6 +62,7 @@ test("wallet safety dialog is keyboard dismissible", async ({ page }) => {
 
 test("all information architecture routes have one named page heading", async ({ page }) => {
   for (const [route, heading] of [
+    ["/dashboard", "Network overview"],
     ["/program-studio", "Program Studio"],
     ["/claims", "Claims"],
     ["/disputes", "Disputes"],
@@ -64,7 +78,7 @@ test("all information architecture routes have one named page heading", async ({
 });
 
 test("skip link and labeled navigation work from the keyboard", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/dashboard");
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Skip to content" })).toBeFocused();
   await page.keyboard.press("Enter");
@@ -141,7 +155,7 @@ test("accessibility smoke: controls are named and semantic color pairs meet AA",
   expect(audit.unnamedInputs).toBe(0);
   expect(audit.contrasts.every((value) => value >= 4.5)).toBe(true);
   await page.locator("html").evaluate((html) => {
-    html.dataset["theme"] = "dark";
+    html.dataset.theme = "dark";
   });
   const dark = await page.evaluate(() => {
     const root = getComputedStyle(document.documentElement);
@@ -178,8 +192,32 @@ test("accessibility smoke: controls are named and semantic color pairs meet AA",
 });
 
 test("missing wallet shows guidance without a completed transaction", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/dashboard");
   await page.getByRole("button", { name: "Connect wallet" }).click();
   await expect(page.getByRole("status")).toContainText("Install an EVM wallet");
   await expect(page.getByRole("table")).toHaveCount(0);
+});
+
+test("landing page and dashboard fit a narrow mobile viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  const landingWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(landingWidth).toBeLessThanOrEqual(375);
+  await page.goto("/dashboard");
+  const dashboardWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(dashboardWidth).toBeLessThanOrEqual(375);
+});
+
+test("dashboard marks unavailable metrics instead of rendering invented zero values", async ({
+  page,
+}) => {
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: "Network overview", level: 1 })).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: /read api not configured|read api unreachable|indexer or rpc check failed|read api response invalid/i,
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".dashboard-metric").first()).toContainText("—");
 });

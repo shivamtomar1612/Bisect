@@ -1,0 +1,2 @@
+ALTER TABLE "Dispute"
+ADD COLUMN "bisectionRounds" INTEGER NOT NULL DEFAULT 0;

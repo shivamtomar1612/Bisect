@@ -4,6 +4,12 @@ import { formatWei } from "./format";
 
 export { formatWei } from "./format";
 
+export function networkName(chainId: number): string {
+  if (chainId === 84532) return "Base Sepolia";
+  if (chainId === 31337 || chainId === 1337) return "Local Anvil";
+  return "Other EVM chain";
+}
+
 export function Badge({
   children,
   tone = "",
@@ -70,9 +76,10 @@ export function TransactionStatus({ status }: { status: "pending" | "confirmed" 
   );
 }
 
-export function ExplorerLink({ hash }: { hash?: string }) {
+export function ExplorerLink({ hash, chainId }: { hash?: string; chainId: number }) {
   if (!hash || !/^0x[a-fA-F0-9]{64}$/.test(hash))
     return <span className="muted">Not available</span>;
+  if (chainId !== 84532) return <span className="muted">No public explorer for this network</span>;
   return (
     <a
       className="button"
@@ -81,6 +88,16 @@ export function ExplorerLink({ hash }: { hash?: string }) {
       rel="noreferrer"
     >
       View on BaseScan <ExternalLink size={14} />
+    </a>
+  );
+}
+
+export function AddressExplorerLink({ address, chainId }: { address: string; chainId: number }) {
+  if (!/^0x[a-fA-F0-9]{40}$/.test(address)) return <span className="muted">Not available</span>;
+  if (chainId !== 84532) return <code title={address}>{address}</code>;
+  return (
+    <a href={`https://sepolia.basescan.org/address/${address}`} target="_blank" rel="noreferrer">
+      {address.slice(0, 8)}…{address.slice(-6)} <ExternalLink size={12} aria-hidden="true" />
     </a>
   );
 }

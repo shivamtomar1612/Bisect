@@ -343,3 +343,34 @@ The repository was empty at initial setup. The initial foundation created one re
 - **Phase 9 UI foundation: PASS.** The UI is a design and read-only wallet/status foundation. The frontend does not yet call the indexer API or registry, so account/claim/dispute financial data remains unavailable until a deployed address and integration configuration are supplied.
 - No contract writes, withdrawal flow, real gas estimates, protocol results, independent audit, or Base Sepolia deployment were added or claimed.
 - Full screen/component evidence: `docs/phase-9-report.md`; token and behavior sources: `DESIGN.md` and `UX-CONTRACT.md`.
+
+## 2026-11-01 — Phase 10 product landing page, overview, and explorers
+
+### Completed
+
+- Replaced the project-status home screen with an accurate product landing page covering the prover/challenger model, ordered Merkle trace commitments, child-hash bisection, the single disputed on-chain transition, active-challenger requirement, trace-data retrieval assumption, and Base Sepolia prototype status.
+- Connected the dashboard, claims explorer, disputes explorer, and claim-detail route to the existing Phase 8 read API. Added read-only `GET /v1/overview` and `GET /v1/claims/:claimId`; claim/dispute listing supports validated search/status filters and cursor pagination.
+- Added confirmed claim/dispute counts, locked exposure in exact wei/test ETH, recent confirmed activity, chain/deployment details, indexer checkpoint/lag, challenge deadlines, bisection rounds, bond and settlement references. Unavailable API/data is not rendered as a successful empty state or fabricated zero.
+- Added a Prisma `bisectionRounds` field and additive migration, projected from confirmed bisection events. Added strict server-only frontend API response validation and chain-aware explorer links. Account Ledger remains read-only; no financial transaction UI was added.
+- Added the direct pinned `tailwindcss` 4.3.3 dependency required by the existing global stylesheet. A clean development compile exposed the missing workspace dependency and stale generated Next cache; after linking the dependency and moving aside only that generated cache, clean Next dev compilation and the full populated integration passed.
+- Added a real-Anvil/real-PostgreSQL browser integration mode and saved dashboard, claims, disputes, and claim-detail screenshots under `docs/phase-10-evidence/`.
+
+### Verification
+
+- `pnpm lint --reporter=summary` — passed with exit 0; 286 informational Biome suggestions and no blocking diagnostics.
+- `pnpm format:check` — passed; 153 files checked.
+- `pnpm install --frozen-lockfile` — passed; lockfile policy verification succeeded and the workspace was already up to date.
+- `pnpm typecheck` — passed across all 7 applicable workspace projects.
+- `pnpm test` — passed; 58 tests across 8 files.
+- `pnpm build` — passed for VM, Merkle, SDK, and Next.js production build; the landing page prerendered and data pages render dynamically.
+- `pnpm e2e` — passed; 10 Chromium tests, including mobile-width behavior and API-unavailable states.
+- `pnpm web:a11y` — passed; 1 Chromium accessibility smoke test.
+- `pnpm db:deploy` — passed; applied the additive bisection-round migration without resetting data.
+- `pnpm phase10:web-integration` — passed with actual local Anvil test-ETH transactions, PostgreSQL indexing, API filtering/pagination, restart/replay, reorganization, reconciliation, populated browser views, and 375px horizontal scrolling for populated claims/disputes tables. Final local run: chain ID `1168104142`, 17 initial real events / 19 canonical events after reorganization, 2 claims, 3 disputes, 5 deposits, 4 settlements, 2 withdrawals; journal balanced and reconciliation matched.
+
+### Readiness and limits
+
+- **Phase 10 local product gate: PASS.** **Base Sepolia data integration: PARTIAL** because there is no deployed registry address or deployment block configured; all populated screenshot and transaction evidence is from local Anvil.
+- Search/filter/pagination and confirmed on-chain references are read-only. No signing, claim/challenge creation, or withdrawal UI exists. The Account Ledger route remains a future layout.
+- The frontend depends on the indexer's confirmation/finality policy and does not supply trace data availability. The system remains unaudited and is not production-secure.
+- Phase 11 has not been started. Full evidence: `docs/phase-10-report.md`.

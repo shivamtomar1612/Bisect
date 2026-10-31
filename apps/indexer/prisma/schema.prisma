@@ -193,6 +193,7 @@ model Dispute {
   challenger       WalletAccount @relation(fields: [challengerWalletId], references: [id], onDelete: Restrict)
   challengerRoot   String
   initialHeight    Int
+  bisectionRounds  Int           @default(0)
   expectedResponder String
   deadlineBlock    BigInt
   phase            DisputePhase  @default(BISECTION)

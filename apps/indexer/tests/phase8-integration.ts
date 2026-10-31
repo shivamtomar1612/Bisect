@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomInt } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { delimiter, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createTraceCommitment } from "@bisect/merkle";
@@ -13,6 +13,7 @@ import {
   parseStateJson,
   type State,
 } from "@bisect/vm";
+import { chromium } from "@playwright/test";
 import {
   type Abi,
   createPublicClient,
@@ -268,7 +269,7 @@ async function runRestartedIndexer(): Promise<void> {
 async function verifyApi(
   config: ReturnType<typeof loadIndexerConfig>,
   address: string,
-): Promise<void> {
+): Promise<boolean> {
   const server = createIndexerApi(config);
   await new Promise<void>((resolveListen, reject) => {
     server.once("error", reject);
@@ -279,11 +280,20 @@ async function verifyApi(
     if (addressInfo === null || typeof addressInfo === "string")
       throw new Error("API failed to bind an ephemeral port.");
     const baseUrl = `http://127.0.0.1:${addressInfo.port}`;
+    const firstClaim = await prisma.claim.findFirst({
+      where: { chainId: config.chainId, contractAddress: config.contractAddress.toLowerCase() },
+      orderBy: { claimId: "asc" },
+    });
+    if (firstClaim === null)
+      throw new Error("Integration did not create a claim for API detail checks.");
     const [
       claims,
-      overview,
+      accountOverview,
       activity,
       status,
+      dashboardOverview,
+      claimDetails,
+      filteredClaims,
       disputes,
       deposits,
       lockedBonds,
@@ -296,12 +306,18 @@ async function verifyApi(
       invalidAddress,
       invalidCursor,
       invalidStatus,
+      invalidSearch,
       post,
     ] = await Promise.all([
       fetch(`${baseUrl}/v1/claims?limit=1`),
       fetch(`${baseUrl}/v1/accounts/${address}/overview`),
       fetch(`${baseUrl}/v1/wallets/${address}/activity?limit=1`),
       fetch(`${baseUrl}/v1/indexer/status`),
+      fetch(`${baseUrl}/v1/overview`),
+      fetch(`${baseUrl}/v1/claims/${firstClaim.claimId.toFixed(0)}`),
+      fetch(
+        `${baseUrl}/v1/claims?limit=5&q=${encodeURIComponent(firstClaim.contextHash.slice(0, 12))}&status=${firstClaim.status}`,
+      ),
       fetch(`${baseUrl}/v1/disputes?limit=1`),
       fetch(`${baseUrl}/v1/deposits?limit=1`),
       fetch(`${baseUrl}/v1/locked-bonds?limit=1`),
@@ -314,13 +330,17 @@ async function verifyApi(
       fetch(`${baseUrl}/v1/accounts/not-an-address/overview`),
       fetch(`${baseUrl}/v1/claims?cursor=bad.cursor`),
       fetch(`${baseUrl}/v1/disputes?status=NOT_A_STATUS`),
+      fetch(`${baseUrl}/v1/claims?q=${encodeURIComponent("bad\u0001query")}`),
       fetch(`${baseUrl}/v1/claims`, { method: "POST" }),
     ]);
     if (
       claims.status !== 200 ||
-      overview.status !== 200 ||
+      accountOverview.status !== 200 ||
       activity.status !== 200 ||
       status.status !== 200 ||
+      dashboardOverview.status !== 200 ||
+      claimDetails.status !== 200 ||
+      filteredClaims.status !== 200 ||
       disputes.status !== 200 ||
       deposits.status !== 200 ||
       lockedBonds.status !== 200 ||
@@ -331,6 +351,37 @@ async function verifyApi(
       reconciliation.status !== 200
     ) {
       throw new Error("Read-only indexer API did not return indexed data.");
+    }
+    const summary: unknown = await dashboardOverview.json();
+    if (
+      !isRecord(summary) ||
+      !isRecord(summary["metrics"]) ||
+      typeof summary["metrics"]["totalClaims"] !== "number" ||
+      summary["metrics"]["totalClaims"] < 2 ||
+      typeof summary["metrics"]["activeDisputes"] !== "number" ||
+      typeof summary["metrics"]["lockedExposureWei"] !== "string" ||
+      !Array.isArray(summary["recentActivity"]) ||
+      summary["recentActivity"].length === 0
+    ) {
+      throw new Error(
+        "Dashboard API did not return actual indexed summary and confirmed activity.",
+      );
+    }
+    const detail: unknown = await claimDetails.json();
+    if (
+      !isRecord(detail) ||
+      detail["claimId"] !== firstClaim.claimId.toFixed(0) ||
+      typeof detail["traceRoot"] !== "string" ||
+      !isRecord(detail["sourceEvent"]) ||
+      typeof detail["sourceEvent"]["transactionHash"] !== "string"
+    ) {
+      throw new Error(
+        "Claim detail API did not return the authenticated commitment and canonical source event.",
+      );
+    }
+    const filtered: unknown = await filteredClaims.json();
+    if (!isRecord(filtered) || !Array.isArray(filtered["data"]) || filtered["data"].length === 0) {
+      throw new Error("Claim search and status filters did not find the indexed claim.");
     }
     const claimPage: unknown = await claims.json();
     if (
@@ -379,14 +430,154 @@ async function verifyApi(
       invalidAddress.status !== 400 ||
       invalidCursor.status !== 400 ||
       invalidStatus.status !== 400 ||
+      invalidSearch.status !== 400 ||
       post.status !== 405
     ) {
       throw new Error("API failed to reject invalid query/address or write method.");
+    }
+    if (process.env["BISECT_WEB_INTEGRATION"] === "1") {
+      await verifyWebReadViews(baseUrl, firstClaim.claimId.toFixed(0), firstClaim.status);
     }
   } finally {
     await new Promise<void>((resolveClose, reject) =>
       server.close((error) => (error ? reject(error) : resolveClose())),
     );
+  }
+  return process.env["BISECT_WEB_INTEGRATION"] === "1";
+}
+
+async function verifyWebReadViews(
+  apiBaseUrl: string,
+  claimId: string,
+  claimStatus: string,
+): Promise<void> {
+  const webPort = randomInt(31_000, 39_000);
+  const webUrl = `http://127.0.0.1:${webPort}`;
+  const nextCli = resolve(root, "apps/web/node_modules/next/dist/bin/next");
+  const web = spawn(
+    process.execPath,
+    [nextCli, "dev", "--hostname", "127.0.0.1", "--port", String(webPort)],
+    {
+      cwd: resolve(root, "apps/web"),
+      env: { ...process.env, BISECT_INDEXER_API_URL: apiBaseUrl },
+      stdio: "ignore",
+      windowsHide: true,
+    },
+  );
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+  try {
+    let ready = false;
+    for (let attempt = 0; attempt < 180; attempt += 1) {
+      if (web.exitCode !== null)
+        throw new Error(`Next.js exited with ${web.exitCode} during the Anvil UI check.`);
+      try {
+        const response = await fetch(`${webUrl}/dashboard`, { signal: AbortSignal.timeout(2_000) });
+        if (response.ok) {
+          ready = true;
+          break;
+        }
+      } catch {
+        await delay(500);
+      }
+    }
+    if (!ready) throw new Error("Next.js did not become ready for the populated Anvil UI check.");
+
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    const evidenceDirectory = join(root, "docs", "phase-10-evidence");
+    mkdirSync(evidenceDirectory, { recursive: true });
+
+    await page.goto(`${webUrl}/dashboard`, { waitUntil: "domcontentloaded" });
+    if (!(await page.getByRole("heading", { name: "Network overview", level: 1 }).isVisible())) {
+      throw new Error("Populated dashboard did not render its heading.");
+    }
+    if (!(await page.locator(".dashboard-metric").first().textContent())?.includes("2")) {
+      throw new Error("Dashboard did not render the two actual indexed Anvil claims.");
+    }
+    const recentActivity = await page.locator(".activity-list").count();
+    if (recentActivity !== 1)
+      throw new Error("Dashboard did not render actual confirmed contract events.");
+    await page.screenshot({ path: join(evidenceDirectory, "dashboard-anvil.png"), fullPage: true });
+
+    await page.goto(`${webUrl}/claims`, { waitUntil: "domcontentloaded" });
+    if ((await page.locator(".explorer-table tbody tr").count()) !== 2) {
+      throw new Error("Claims explorer did not render both actual indexed claims.");
+    }
+    await page.screenshot({ path: join(evidenceDirectory, "claims-anvil.png"), fullPage: true });
+
+    await page.goto(`${webUrl}/disputes`, { waitUntil: "domcontentloaded" });
+    if ((await page.locator(".explorer-table tbody tr").count()) !== 3) {
+      throw new Error("Disputes explorer did not render actual indexed dispute games.");
+    }
+    if (!(await page.getByText("Round", { exact: false }).count())) {
+      throw new Error("Dispute bisection rounds were not rendered.");
+    }
+    await page.screenshot({ path: join(evidenceDirectory, "disputes-anvil.png"), fullPage: true });
+
+    await page.goto(`${webUrl}/claims/${claimId}`, { waitUntil: "domcontentloaded" });
+    if (!(await page.getByRole("heading", { name: `Claim #${claimId}`, level: 1 }).isVisible())) {
+      throw new Error("Claim detail page did not render the actual on-chain claim identifier.");
+    }
+    await page.screenshot({
+      path: join(evidenceDirectory, "claim-detail-anvil.png"),
+      fullPage: true,
+    });
+
+    await page.goto(
+      `${webUrl}/claims?q=${encodeURIComponent(claimId)}&status=${encodeURIComponent(claimStatus)}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    if ((await page.locator(".explorer-table tbody tr").count()) !== 1) {
+      throw new Error("Claim search and status filters did not isolate the real indexed claim.");
+    }
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(`${webUrl}/dashboard`, { waitUntil: "domcontentloaded" });
+    if ((await page.evaluate(() => document.documentElement.scrollWidth)) > 375) {
+      throw new Error("Dashboard content overflows a 375px viewport outside its table scroller.");
+    }
+    for (const route of ["/claims", "/disputes"]) {
+      await page.goto(`${webUrl}${route}`, { waitUntil: "domcontentloaded" });
+      const tableScroll = await page.evaluate(() => {
+        const wrapper = document.querySelector<HTMLElement>(".explorer-table-wrap");
+        if (wrapper === null) return null;
+        return {
+          pageWidth: document.documentElement.scrollWidth,
+          clientWidth: wrapper.clientWidth,
+          scrollWidth: wrapper.scrollWidth,
+        };
+      });
+      if (
+        tableScroll === null ||
+        tableScroll.pageWidth > 375 ||
+        tableScroll.scrollWidth <= tableScroll.clientWidth
+      ) {
+        throw new Error(`${route} table did not stay in its mobile horizontal scroller.`);
+      }
+      await page.locator(".explorer-table-wrap").evaluate((element) => {
+        element.scrollLeft = element.scrollWidth;
+      });
+      if (
+        (await page.locator(".explorer-table-wrap").evaluate((element) => element.scrollLeft)) < 1
+      ) {
+        throw new Error(`${route} table could not be scrolled horizontally on mobile.`);
+      }
+    }
+    if (pageErrors.length) throw new Error(`Browser raised an error: ${pageErrors[0]}`);
+  } finally {
+    if (browser !== undefined) await browser.close();
+    if (web.exitCode === null && web.pid !== undefined) {
+      if (process.platform === "win32") {
+        spawnSync("taskkill", ["/pid", String(web.pid), "/t", "/f"], {
+          stdio: "ignore",
+          windowsHide: true,
+        });
+      } else {
+        web.kill("SIGTERM");
+      }
+    }
   }
 }
 
@@ -740,7 +931,7 @@ async function main(): Promise<void> {
     }
 
     const apiChallenger = challenger1;
-    await verifyApi(config, prover2);
+    const webReadViews = (await verifyApi(config, prover2)) ? "passed" : "not_requested";
     const beforeIdempotent = await prisma.journalTransaction.count({
       where: { chainId, contractAddress: registry.toLowerCase() },
     });
@@ -889,6 +1080,7 @@ async function main(): Promise<void> {
           },
           idempotentRestartReplay: "passed",
           apiAllReadRoutesPaginationValidationAndReadOnlyBehavior: "passed",
+          populatedWebReadViews: webReadViews,
         },
         null,
         2,

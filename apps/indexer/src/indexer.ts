@@ -602,6 +602,7 @@ async function projectChallengeStarted(
       challengerWalletId: challenger.id,
       challengerRoot: requireString(payload["challengerRoot"], "challengerRoot"),
       initialHeight: requireInteger(payload["initialHeight"], "initialHeight"),
+      bisectionRounds: 0,
       expectedResponder: requireAddress(
         payload["expectedResponder"],
         "expectedResponder",
@@ -615,6 +616,7 @@ async function projectChallengeStarted(
       challengerWalletId: challenger.id,
       challengerRoot: requireString(payload["challengerRoot"], "challengerRoot"),
       initialHeight: requireInteger(payload["initialHeight"], "initialHeight"),
+      bisectionRounds: 0,
       expectedResponder: requireAddress(
         payload["expectedResponder"],
         "expectedResponder",
@@ -1030,6 +1032,7 @@ async function applyReadModelEvent(config: IndexerConfig, event: StoredEvent): P
           },
           data: {
             phase: subtreeHeight === 0 ? "TERMINAL" : "BISECTION",
+            bisectionRounds: { increment: 1 },
             differentIndex:
               subtreeHeight === 0
                 ? requireInteger(payload["differentIndex"], "differentIndex")

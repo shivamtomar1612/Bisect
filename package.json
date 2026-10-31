@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "phase10:web-integration": "node scripts/phase10-web-integration.mjs",
     "web:a11y": "playwright test --grep \"accessibility smoke\"",
     "local:anvil": "node scripts/run-anvil.mjs",
     "check:anvil": "node scripts/check-anvil.mjs",

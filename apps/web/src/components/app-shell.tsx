@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import { WalletStatus } from "./wallet-status";
 
 const links = [
-  { href: "/", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/program-studio", label: "Program Studio", icon: Code2 },
   { href: "/claims", label: "Claims", icon: FileCheck2 },
   { href: "/disputes", label: "Disputes", icon: Scale },
@@ -77,6 +77,42 @@ export function AppShell({ children }: { children: ReactNode }) {
     document.documentElement.dataset["theme"] = selected;
     window.localStorage.setItem("bisect-theme", selected);
   }
+  if (pathname === "/") {
+    return (
+      <div className="marketing-shell">
+        <a className="skip-link" href="#main-content">
+          Skip to content
+        </a>
+        <header className="marketing-header">
+          <Link href="/" className="brand">
+            <span className="mark">B</span> BISECT
+          </Link>
+          <nav className="marketing-nav" aria-label="Product navigation">
+            <Link href="/dashboard">Dashboard</Link>
+            <Link className="marketing-studio-link" href="/program-studio">
+              Program Studio
+            </Link>
+            <Link href="/documentation">Docs</Link>
+          </nav>
+          <button
+            type="button"
+            className="button icon-button"
+            onClick={toggleTheme}
+            aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
+          >
+            {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
+        </header>
+        <main id="main-content" tabIndex={-1}>
+          {children}
+        </main>
+        <footer className="marketing-footer">
+          <span>BISECT · optimistic computation verification</span>
+          <span>Base Sepolia testnet prototype · unaudited research software</span>
+        </footer>
+      </div>
+    );
+  }
   return (
     <div className="frame">
       <a className="skip-link" href="#main-content">
@@ -103,7 +139,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={href}
                 href={href}
-                aria-current={pathname === href ? "page" : undefined}
+                aria-current={
+                  pathname === href ||
+                  (href !== "/dashboard" && href !== "/" && pathname.startsWith(`${href}/`))
+                    ? "page"
+                    : undefined
+                }
                 onClick={() => setMenuOpen(false)}
               >
                 <Icon size={17} aria-hidden="true" />
@@ -117,7 +158,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="dot" />
             Testnet preview
           </span>
-          <p style={{ marginTop: 10 }}>Contracts are not configured for this workspace.</p>
+          <p style={{ marginTop: 10 }}>
+            Read-only explorer · data depends on an available indexer.
+          </p>
         </div>
       </aside>
       <div className="workspace" inert={menuOpen}>
@@ -133,7 +176,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <Menu size={17} />
             </button>
-            <span className="eyebrow">Base Sepolia · chain 84532</span>
+            <span className="eyebrow">Base Sepolia · testnet target</span>
           </div>
           <div className="top-right">
             <WalletStatus />
