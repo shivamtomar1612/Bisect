@@ -1,0 +1,14 @@
+{
+  "name": "@bisect/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "viem": "^2.38.5",
+    "wagmi": "^2.19.5"
+  }
+}

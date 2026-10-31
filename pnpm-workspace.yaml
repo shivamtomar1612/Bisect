@@ -1,0 +1,17 @@
+packages:
+  - apps/*
+  - packages/*
+  - contracts
+allowBuilds:
+  # Official Prisma installer scripts fetch the matching local CLI/query engine binaries.
+  "@prisma/engines": true
+  # esbuild's installer verifies and prepares its platform-matched binary for tsx.
+  esbuild: true
+  # Official Prisma CLI postinstall prepares its matching local engine assets.
+  prisma: true
+  # Optional WebSocket native accelerators; JavaScript fallbacks remain available.
+  bufferutil: false
+  # Optional native Keccak implementation; the JavaScript fallback remains available.
+  keccak: false
+  # Optional WebSocket UTF-8 accelerator; JavaScript validation remains available.
+  utf-8-validate: false

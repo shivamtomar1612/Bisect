@@ -1,0 +1,37 @@
+# Dependencies and build output
+node_modules/
+.pnpm-store/
+.tools/
+apps/indexer/src/generated/prisma/
+.next/
+apps/web/next-env.d.ts
+out/
+dist/
+coverage/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.seed
+
+# Foundry output and dependencies
+contracts/cache/
+contracts/out/
+contracts/broadcast/
+contracts/lib/*
+!contracts/lib/openzeppelin-contracts
+!contracts/lib/openzeppelin-contracts/**
+
+# Local databases and editor/OS files
+*.db
+*.sqlite
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
