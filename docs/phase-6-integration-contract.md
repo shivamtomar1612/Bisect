@@ -1,10 +1,10 @@
 # Phase 6 integration contract
 
-This is the implementation contract for integrating the locked v1 bisection game with the Phase 5 accounting base. It is a design artifact, not implemented behavior. No account-ledger addendum exists; this document does not define a database ledger or wallet custody.
+This records the integration boundary for the implemented v1 dispute registry. It follows the locked v1 state machine and Phase 5 accounting base. No account-ledger addendum exists; this document does not define a database ledger or wallet custody.
 
 ## 1. Deployment and trust boundary
 
-Implement a fresh, non-upgradeable `BisectDisputeRegistryV1` derived from `BisectClaimRegistry`. Claim storage, active-game storage, bond accounting, and withdrawals must live in the same contract. Do not add an independently trusted settlement contract, privileged winner setter, owner withdrawal, upgrade path, or readiness toggle. The inherited Phase 5 public `submitClaim` and `finalize` fail closed; the derived contract must explicitly override them.
+`BisectDisputeRegistryV1` is a fresh, non-upgradeable contract derived from `BisectClaimRegistry`. Claim storage, active-game storage, bond accounting, and withdrawals live in the same contract. There is no independently trusted settlement contract, privileged winner setter, owner withdrawal, upgrade path, or readiness toggle. The inherited Phase 5 public `submitClaim` and `finalize` fail closed; the derived contract explicitly overrides them.
 
 The integrated contract is the sole financial authority. TypeScript clients, the indexer, PostgreSQL, and challenger services may prepare data but cannot select a winner or alter a balance. Solidity must use the existing `BisectVerifier` and exact VM v1 / encoding v1 semantics.
 
@@ -12,17 +12,17 @@ The integrated contract is the sole financial authority. TypeScript clients, the
 
 The following behavior is required by `dispute-state-machine.md`; Solidity may use equivalent struct encoding while preserving all validation and state changes.
 
-| Operation                                                                     | Caller/value                          | Required behavior                                                                                                                                                                        |
-| ----------------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `submitClaim(submission)`                                                     | Any prover; exactly `B` wei           | Override the base revert and call `_submitClaim` only after the integration is complete. Authenticate canonical initial and halted terminal proofs as the base helper does.              |
-| `challenge(claimId, challengerRoot, initialState, initialProof)`              | Non-prover; exactly `B` wei           | Require `OPEN`, `block.number <= challengeDeadline`, a distinct root, exact canonical initial state/proof for stored context, and no active game. Lock challenger bond and start a game. |
-| `revealChildren(claimId, leftHash, rightHash)`                                | Exact expected responder; no value    | Authenticate ordered children against that party's current parent. Prover responds first at each level; challenger responds second.                                                      |
-| `revealTerminal(claimId, previousState, previousProof, nextState, nextProof)` | Expected terminal responder; no value | Challenger reveals first; prover second. Authenticate both indexed states against the party's own root and selected leaf. Verify only the proposer's transition.                         |
-| `claimTimeout(claimId)`                                                       | Permissionless; no value              | After `block.number > deadlineBlock`, apply the locked timeout result for the party that failed to respond.                                                                              |
-| `finalize(claimId)`                                                           | Permissionless; no value              | Override the base fail-closed method. Require `OPEN`, original deadline passed, proposer bond locked, and **no active game** before `_finalizeClaimAfterDisputeResolution`.              |
-| `withdraw()`                                                                  | Credit owner; no value                | Preserve inherited caller-only pull withdrawal, checks-effects-interactions, and reentrancy protection.                                                                                  |
+| Operation                                                        | Caller/value                          | Required behavior                                                                                                                                                                        |
+| ---------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `submitClaim(submission)`                                        | Any prover; exactly `B` wei           | Override the base revert and call `_submitClaim` only after the integration is complete. Authenticate canonical initial and halted terminal proofs as the base helper does.              |
+| `challenge(claimId, challengerRoot, initialProof) -> gameNumber` | Non-prover; exactly `B` wei           | Require `OPEN`, `block.number <= challengeDeadline`, a distinct root, exact canonical initial state/proof for stored context, and no active game. Lock challenger bond and start a game. |
+| `revealChildren(claimId, gameNumber, leftHash, rightHash)`       | Exact expected responder; no value    | Authenticate ordered children against that party's current parent. Prover responds first at each level; challenger responds second.                                                      |
+| `revealTerminal(claimId, gameNumber, transitionProof)`           | Expected terminal responder; no value | Challenger reveals first; prover second. Authenticate both indexed states against the party's own root and selected leaf. Verify only the proposer's transition.                         |
+| `claimTimeout(claimId, gameNumber)`                              | Permissionless; no value              | After `block.number > deadlineBlock`, apply the locked timeout result for the party that failed to respond.                                                                              |
+| `finalize(claimId)`                                              | Permissionless; no value              | Override the base fail-closed method. Require `OPEN`, original deadline passed, proposer bond locked, and **no active game** before `_finalizeClaimAfterDisputeResolution`.              |
+| `withdraw()`                                                     | Credit owner; no value                | Preserve inherited caller-only pull withdrawal, checks-effects-interactions, and reentrancy protection.                                                                                  |
 
-The v1 dispute specification stores a monotonically increasing `gameNumber` per claim. Every game-specific write must be bound to the currently active game. The implementation must decide and document whether `gameNumber` is included in each game-call ABI as replay fencing; changing the ABI is acceptable only if it does not change any locked v1 state transition or settlement rule.
+The v1 dispute specification stores a monotonically increasing `gameNumber` per claim. Every game-specific write includes and checks the currently active game number. ADR-0013 records this ABI replay fence; it does not change any locked v1 state transition, proof, deadline, or settlement rule.
 
 ## 3. Stored state and cross-field invariants
 
@@ -95,10 +95,14 @@ These are locked semantics from `dispute-state-machine.md`; implementation conve
 
 ## 7. Events and client-facing observability
 
-Preserve existing `ClaimSubmitted`, `ClaimFinalized`, and `Withdrawal` behavior unless an explicit compatibility decision changes the event names. The v1 dispute spec names `CreditWithdrawn`; reconcile that existing naming mismatch before release. Add events sufficient to reconstruct game progress without trusting the indexer: `ChallengeStarted`, `BisectionLevelResolved`, `TerminalResolved`, and `GameTimedOut`. Include claim/game identity, participants, roots or selected index, responder/deadline, and outcome. Events must not encode unbounded full traces.
+The implementation preserves `ClaimSubmitted`, `ClaimFinalized`, and `Withdrawal` and emits `ChallengeStarted`, `DisputeChildrenRevealed`, `BisectionLevelResolved`, `TerminalEvidenceRevealed`, `GameResolved`, `GameTimedOut`, and `GameBondCredited`. These events carry claim/game identity, participants, roots or selected index, responder/deadline, outcome, and exact credit movements. Both accepted terminal responses emit evidence hashes. The Foundry and mined-Anvil tests decode these events and compare them with the closed game, claim state, credits, and withdrawal. Events do not carry full traces, proof paths, or private key material; contract storage remains authoritative and event consumers must handle reorgs.
 
 Events are not an alternate accounting ledger. On-chain mappings and aggregate liabilities remain authoritative; off-chain consumers must handle chain reorgs.
 
 ## 8. Account Ledger boundary
 
 The Account Ledger addendum was confirmed as not yet authored. This phase design therefore defines only protocol bonds, credits, and authoritative Solidity events/reads. It does not specify wallet custody, hosted signers, database double-entry accounting, indexing reconciliation rules, or user withdrawal UX. Those topics require their separately authorized addendum before financial-ledger implementation.
+
+## 9. Phase 6 implementation status
+
+The contract and generated ABI are in `contracts/src/BisectDisputeRegistryV1.sol` and `packages/sdk/src/abis/bisectDisputeRegistryV1.ts`. TypeScript generates `contracts/test/vectors/dispute-v1.json`; Foundry consumes it for state-machine tests. `packages/sdk/scripts/phase6-anvil.mts` runs the complete game with two unlocked local Anvil accounts and mined transactions. Exact verification results and remaining limitations are recorded in `docs/phase-6-report.md`. No Base Sepolia deployment or independent audit is claimed.

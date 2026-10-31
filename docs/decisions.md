@@ -86,6 +86,13 @@ Material protocol choices below are accepted and locked for v1. Implementations 
 - **Reason:** A single state machine avoids trusted cross-contract settlement authority, duplicated liability totals, and synchronization risk. There is no live Phase 5 state to migrate.
 - **Consequences:** Phase 6 must maintain per-game replay/settlement guards, exact turn/deadline semantics, and claim-to-game accounting. Any ABI replay-fencing additions require review against the locked v1 spec before implementation. This ADR adds no VM, hashing, bisection, or bond-outcome semantic changes.
 
+## ADR-0013: Per-call game number replay fence
+
+- **Status:** Accepted, 2026-10-31
+- **Decision:** `challenge` returns a monotonically increasing per-claim `gameNumber`; `revealChildren`, `revealTerminal`, and `claimTimeout` require that number and verify it matches the active game before processing.
+- **Reason:** A call prepared for an earlier closed game must not accidentally be applied to a later retry for the same claim. The game number makes stale-call rejection explicit at the ABI boundary.
+- **Consequences:** This is an ABI replay fence only. It does not change locked v1 proof contents, child-hash selection, responder order, deadlines, terminal verification, retry eligibility, or bond outcomes. Every failed stale call reverts without moving ETH or consuming a turn.
+
 ## Open release/operations decisions
 
 These are deployment and service choices, not undefined v1 state transitions:

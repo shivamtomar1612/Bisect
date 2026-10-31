@@ -36,15 +36,15 @@ The verifier computes versioned hashes/context and checks:
 
 On success, store the claim and exact program bytes, lock `B`, set `challengeDeadline=block.number+challengeWindowBlocks`, set status `OPEN`, emit `ClaimSubmitted`, and return the new ID. `totalCredits` and `totalLiabilities` are zero at deployment; this deposit increases total liabilities by `B`. All failed checks revert atomically and lock no ETH.
 
-### 3.2 `challenge(claimId, challengerRoot, initialState, initialProof)`
+### 3.2 `challenge(claimId, challengerRoot, initialState, initialProof) -> gameNumber`
 
 Preconditions: claim status `OPEN`; `block.number <= challengeDeadline`; caller is not the prover; exact `B`; `challengerRoot != traceRoot`; initial proof has exactly `H` siblings and proves at index 0 the exact canonical initial state under the claim's context.
 
-No challenger final-state or output claim is required. The challenger root commits to `N+1` context-bound leaves by the fixed tree shape. Only the on-chain revealed paths are needed for adjudication. On success, lock challenger `B`, set status `GAME_ACTIVE`, active root to `challengerRoot`, `height=H`, `baseIndex=0`, prover/challenger current nodes to their roots, expected responder to the prover, and `deadlineBlock=block.number+turnWindowBlocks`; emit `ChallengeStarted`.
+No challenger final-state or output claim is required. The challenger root commits to `N+1` context-bound leaves by the fixed tree shape. Only the on-chain revealed paths are needed for adjudication. On success, lock challenger `B`, allocate the next monotonically increasing per-claim `gameNumber`, set status `GAME_ACTIVE`, active root to `challengerRoot`, `height=H`, `baseIndex=0`, prover/challenger current nodes to their roots, expected responder to the prover, and `deadlineBlock=block.number+turnWindowBlocks`; emit `ChallengeStarted` and return `gameNumber`.
 
 An arbitrary challenger tree that has a valid initial proof is permitted. It cannot win against a valid proposer under the hash and VM assumptions: the first differing transition will validate for the proposer. Failed challenges transfer their bond to the prover and do not finalize/refute the claim. This allows a later honest challenger to retry.
 
-### 3.3 `revealChildren(claimId, leftHash, rightHash)`
+### 3.3 `revealChildren(claimId, gameNumber, leftHash, rightHash)`
 
 Preconditions: status `GAME_ACTIVE`; phase is bisection; caller is the exact expected responder; `block.number <= deadlineBlock`.
 
@@ -57,7 +57,7 @@ Let `parent` be that party's current subtree hash. Require `nodeHash(leftHash,ri
 
 Because left is always chosen when it differs, this process isolates the **smallest** differing state index. The initial state proofs ensure the result is at least one.
 
-### 3.4 `revealTerminal(claimId, previousState, previousProof, nextState, nextProof)`
+### 3.4 `revealTerminal(claimId, gameNumber, transitionProof)`
 
 Preconditions: claim status `GAME_ACTIVE`; phase is terminal; caller is the exact expected responder; `block.number <= deadlineBlock`. Both state indexes are implicit: `differentIndex-1` and `differentIndex`. Proof arrays must each have exactly `H` siblings.
 
@@ -70,7 +70,7 @@ The verifier does not require the challenger's next state to be a valid successo
 
 Any malformed proof, unexpected index, wrong root, wrong leaf hash, wrong caller, or late response reverts without changing state. The respondent may retry until its deadline. A reverted transaction does not extend the deadline.
 
-### 3.5 `claimTimeout(claimId)`
+### 3.5 `claimTimeout(claimId, gameNumber)`
 
 Permissionless. Preconditions: claim `GAME_ACTIVE` and `block.number > deadlineBlock`.
 
@@ -119,6 +119,6 @@ Direct plain ETH transfers revert. Forced ETH is unaccounted surplus: it changes
 
 ## 6. Events and replay rules
 
-The implementation MUST emit enough indexed events to reconstruct claim/game status without making an indexer authoritative: `ClaimSubmitted`, `ChallengeStarted`, `BisectionLevelResolved`, `TerminalResolved`, `GameTimedOut`, `ClaimFinalized`, and `CreditWithdrawn`. Events include claim ID, participants, relevant root/index/deadline, and winner/result where applicable; they MUST NOT include private key material. Contract storage/views remain authoritative.
+The implementation MUST emit enough indexed events to reconstruct claim/game status without making an indexer authoritative. The v1 registry emits `ClaimSubmitted`, `ChallengeStarted`, `DisputeChildrenRevealed`, `BisectionLevelResolved`, `TerminalEvidenceRevealed`, `GameResolved`, `GameTimedOut`, `GameBondCredited`, `ClaimFinalized`, and `Withdrawal`. The two terminal-evidence events identify each responder, the selected index, predecessor state hash, and selected successor leaf hash; `GameResolved` records the exact winner, outcome, claim status, and credit movement. Events MUST NOT include private key material. Contract storage/views remain authoritative.
 
-Claim IDs are monotonic and never reused. Finalized and refuted claims are terminal. A closed game cannot be replayed; a new game has a new game counter within that claim and fresh turn data but the same fixed claim context/deadline. Only one game is active at a time.
+Claim IDs are monotonic and never reused. Finalized and refuted claims are terminal. A closed game cannot be replayed; every mutating game call includes its `gameNumber`, which is checked against the active game before processing. This is an ABI replay fence only: it does not alter any v1 proof, turn, deadline, bisection, or settlement rule. A new game has a new counter within that claim and fresh turn data but the same fixed claim context/deadline. Only one game is active at a time.

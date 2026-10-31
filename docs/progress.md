@@ -1,5 +1,29 @@
 # Development progress
 
+## 2026-11-01 — Phase 6 interactive dispute and financial settlement
+
+### Completed
+
+- Implemented `contracts/src/BisectDisputeRegistryV1.sol` as a non-upgradeable derived registry. It enables exact-bond claims, distinct-root challenges with the locked v1 initial-state proof, child-hash bisection, authenticated terminal states, Solidity one-step adjudication, turn timeouts, retry fencing, finalization, and pull-credit bond settlement.
+- Preserved v1 leftmost-difference selection using ordered child-subtree hashes. The opening witness and bisection remain exactly as locked in `docs/dispute-state-machine.md`; no midpoint-state search or protocol-semantic change was introduced.
+- Added TypeScript-generated cross-language dispute vectors, eight Foundry dispute tests, generated SDK ABI and typed reader/writer API, a complete isolated Anvil transaction test, and an Anvil test step in the contract CI job.
+- Added ADR-0013 for per-call `gameNumber` stale-call rejection; it is an ABI replay fence only. Updated requirements, architecture, security model, setup/status docs, and `docs/phase-6-integration-contract.md`.
+- Did not implement wallet custody, database financial ledger, automatic challenger service, or testnet deployment. The Account Ledger addendum remains pending.
+
+### Verification
+
+- `pnpm check:phase6` — passed, exit 0: lint, formatting, all 7 workspace typechecks, 41 Vitest tests across 5 files, TypeScript package builds, Next.js production build, Foundry build and tests, regenerated TypeScript/Solidity vectors, and mined Anvil game.
+- Foundry `1.8.7` / Solidity `0.8.30`: 34 tests passed across five suites. The accounting invariant completed 256 runs and 128,000 handler calls with no reverts or invariant failures. Two verifier fuzz tests ran 256 cases each.
+- After the final Anvil `PATH` discovery adjustment, `pnpm --filter @bisect/sdk typecheck`, `pnpm lint`, `pnpm format:check`, `forge fmt --root contracts --check`, and `pnpm phase6:anvil` passed again.
+- The Anvil run mined 18 transactions on chain ID 31337, isolated the first differing state at index 1 in 6 rounds, and settled 2 ETH of pull credit to the challenger. Actual gas and wei balance measurements are recorded in `docs/phase-6-report.md`.
+- `.github/workflows/ci.yml` now includes the local Anvil dispute run. GitHub-hosted CI was not run from this workstation.
+
+### Readiness and remaining risks
+
+- **Phase 6 local implementation and verification: PASS.** The integrated game is tested with local real transactions and test ETH; it has not been deployed to Base Sepolia.
+- **Deployment or meaningful-fund use: NO-GO.** There is no independent audit, production data-availability/challenger operation, or reviewed Base Sepolia bond/window configuration.
+- Full maximum-budget game execution and a separate full dispute-lifecycle invariant handler remain unimplemented. See [`phase-6-report.md`](phase-6-report.md) for the measured Anvil run, exact checks, and assumptions.
+
 ## 2026-10-31 — Phase 5.5 pre-dispute security gate and Phase 6 design
 
 ### Completed

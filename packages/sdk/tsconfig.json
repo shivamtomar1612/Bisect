@@ -8,5 +8,5 @@
       "@bisect/vm": ["../vm/src/index.ts"]
     }
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "scripts/**/*.mts"]
 }

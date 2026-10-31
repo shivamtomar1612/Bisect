@@ -9,5 +9,6 @@
       "@bisect/merkle": ["../merkle/dist/index.d.ts"],
       "@bisect/vm": ["../vm/dist/index.d.ts"]
     }
-  }
+  },
+  "include": ["src/**/*.ts"]
 }

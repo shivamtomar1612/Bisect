@@ -79,3 +79,4 @@ jobs:
           version: v1.8.7
       - run: pnpm contracts:build
       - run: pnpm contracts:test
+      - run: pnpm phase6:anvil

@@ -1,6 +1,6 @@
 # BISECT architecture
 
-**Protocol status:** v1 semantics are specified and locked in `protocol-v1.md`. VM execution, ordered trace roots/proofs, typed off-chain SDK APIs, and the Solidity one-step verifier are implemented. Phase 5 escrow/accounting helpers exist, but the base `BisectClaimRegistry` rejects claim submissions and never finalizes because there is no dispute game. A derived test harness exercises shared paths only; it is not a production deployment. Phase 6 must provide a complete integrated dispute registry before claims or bonds are enabled. Changes to locked semantics require explicit versioning as described in `docs/decisions.md`.
+**Protocol status:** v1 semantics are specified and locked in `protocol-v1.md`. VM execution, ordered trace roots/proofs, typed off-chain SDK APIs, the Solidity one-step verifier, and the integrated Phase 6 bisection/settlement registry are implemented and locally tested. `BisectClaimRegistry` remains a fail-closed accounting base; the operative entrypoints are in `BisectDisputeRegistryV1`. The protocol has not been deployed to Base Sepolia or independently audited. Changes to locked semantics require explicit versioning as described in `docs/decisions.md`.
 
 ## System boundary
 
@@ -8,7 +8,7 @@
 TypeScript VM and trace builder
         │ canonical states + Keccak Merkle root
         ▼
-Proposer wallet ── claim + bond ──> Phase 6 dispute registry (planned)
+Proposer wallet ── claim + bond ──> BisectDisputeRegistryV1
                                       ▲                         │
 Challenger wallet ─ challenge/game ──┘                         ├─ public claim/game events
                                                                 ▼
@@ -16,7 +16,7 @@ Challenger wallet ─ challenge/game ──┘                         ├─ pu
                                                  (derived, not authoritative)
 ```
 
-The off-chain TypeScript implementation executes only the finite register-machine ISA in `vm-spec.md`. The Solidity verifier validates bounded programs and one-step transitions. The Phase 5 base contains endpoint validation and accounting internals, but public claim admission and finalization fail closed. It does not admit challenges or manage dispute-game outcomes. A client, indexer, or database cannot override contract state.
+The off-chain TypeScript implementation executes only the finite register-machine ISA in `vm-spec.md`. The Solidity verifier validates bounded programs and one-step transitions. The Phase 5 base contains endpoint validation and accounting internals and continues to fail closed by itself. The Phase 6 derived registry explicitly enables claims, games, settlement, and finalization. A client, indexer, or database cannot override contract state.
 
 ## Locked execution model
 
@@ -32,16 +32,16 @@ Each bisection level compares both parties' ordered child hashes and descends le
 
 ## On-chain accounting
 
-The base contract defines exact native-ETH wei accounting, no fee or treasury, no admin withdrawal, and caller-only pull withdrawals. Its public submission and finalization paths revert while the dispute protocol is absent, so it accepts no user bond. A dispute-enabled derived deployment may reuse `_submitClaim`, `_recordIncomingBond`, `_moveLockedBondToCredit`, and `_finalizeClaimAfterDisputeResolution`; it must add proof-authorized game transitions and guard finalization against active games. `totalLiabilities` equals locked bonds plus credits and must not exceed contract balance. Forced ETH is surplus, not user credit. Challenge bond accounting and game settlement remain unimplemented.
+The base contract defines exact native-ETH wei accounting, no fee or treasury, no admin withdrawal, and caller-only pull withdrawals. Its public submission and finalization paths revert when deployed alone, so it accepts no user bond. `BisectDisputeRegistryV1` reuses the internal claim/accounting paths and guards finalization against active games. `totalLiabilities` equals locked bonds plus credits and must not exceed contract balance. Forced ETH is surplus, not user credit. Claim admission, challenge bonds, game settlement, timeouts, and finalization have Foundry coverage and a mined local Anvil end-to-end run.
 
 ## Services
 
 - **VM package:** bounded VM v1 execution, canonical ABI/Keccak encodings, fixed-length trace generation, and CLI are implemented and tested against TypeScript vectors.
 - **Merkle package:** ordered, position-sensitive v1 roots and bottom-up inclusion proofs are implemented. The package reuses the VM's locked ABI/hash functions, independently builds the tree, and compares its root with the VM result.
-- **SDK:** typed trace creation, state commitments, proof creation/verification, JSON-safe trace/proof import/export, generated claim-registry ABI, and viem reader/writer wrappers are implemented. No deployed address or wallet custody is bundled.
-- **Solidity claim registry base:** endpoint-authenticated submission internals, exact-bond escrow accounting, immutable windows, duplicate prevention, liability views, and pull withdrawals are present. Public submission and finalization revert until a dispute-enabled derived implementation exists. Foundry harnesses exercise internal paths only; they do not establish production settlement. The challenge/game contract is not implemented.
+- **SDK:** typed trace creation, state commitments, proof creation/verification, JSON-safe trace/proof import/export, generated base and dispute-registry ABIs, and viem reader/writer wrappers are implemented. No deployed address or wallet custody is bundled.
+- **Solidity claim registry:** the base contains fail-closed shared accounting; `BisectDisputeRegistryV1` enables authenticated claim admission, exact-bond challenges, leftmost child-hash bisection, terminal one-step verification, deterministic timeout outcomes, pull-credit settlement, retries, and finalization. Foundry tests and a real-transaction local Anvil run cover the full path. No testnet deployment or independent audit is claimed.
 - **Solidity verifier library:** bounded v1 program validation, one-step execution, domain-separated canonical hashing, and ordered inclusion proofs are implemented and checked against TypeScript-generated vectors.
-- **Challenger:** independently recomputes traces, watches claims, and answers games with an isolated signer. Planned; availability and key custody are operator responsibilities.
+- **Challenger:** the service that automatically watches claims and answers games remains planned. Local test tooling uses Anvil's unlocked test accounts only; no user keys are stored.
 - **Indexer:** consumes public events and handles reorgs; data is derived and rebuildable. It is not a correctness authority.
 - **Web application:** will show actual wallet/RPC states and contract events; it must not fabricate transactions, gas, proofs, or dispute results.
 - **PostgreSQL:** stores derived service records only; contract state remains authoritative.
