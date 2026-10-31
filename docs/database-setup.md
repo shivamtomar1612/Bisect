@@ -23,8 +23,8 @@ pnpm db:migrate
 pnpm db:smoke
 ```
 
-`db:migrate` uses `prisma migrate dev` in development. CI applies committed migrations with `prisma migrate deploy`. The smoke script inserts, reads, and removes one row; it does not reset the database. After restarting PostgreSQL, rerun `pnpm db:health` and `pnpm db:smoke` to verify persistence and reconnection.
+`db:migrate` uses `prisma migrate dev` in development. CI applies committed migrations with `prisma migrate deploy`. The smoke script inserts, reads, and removes one row; it does not reset the database. `pnpm db:restart-check` writes a unique row, restarts only the PostgreSQL container, verifies that exact row remains, and removes it. This check does not delete or reset the database volume.
 
-## Current verification limit
+## Verified environment
 
-Docker Desktop `4.97.0` is installed, and the Windows restart has occurred, but WSL is not installed and Docker Desktop's Linux engine does not start. `docker info` fails because the `dockerDesktopLinuxEngine` pipe is absent. Compose syntax and Prisma schema/client generation were verified, but PostgreSQL has not started. No database connection, migration, read/write, authentication, restart, or persistence result is claimed. Complete WSL/Ubuntu installation and Docker Desktop WSL integration first, then execute the commands above and the database restart smoke check.
+On 2026-10-31, Docker Desktop `4.97.0` ran its Linux engine on WSL 2. PostgreSQL became healthy, the initial Prisma migration applied, Prisma authenticated through `DATABASE_URL` and completed read/write, and a database row survived the container restart check. The aggregate `pnpm check:all` passed. See `docs/environment-verification.md` for command-level results. No production database is configured.
