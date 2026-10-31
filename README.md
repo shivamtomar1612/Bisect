@@ -56,7 +56,9 @@ Contract checks require Foundry. Database checks require the local PostgreSQL se
 
 ## Protocol status and assumptions
 
-The initial protocol semantics and open design decisions are in [docs/architecture.md](docs/architecture.md) and [docs/decisions.md](docs/decisions.md). Requirements and their planned evidence are tracked in [docs/requirements.md](docs/requirements.md). See [docs/progress.md](docs/progress.md) for verified current status.
+**BISECT protocol v1 is specified and locked; implementation has not started.** Start with [docs/protocol-v1.md](docs/protocol-v1.md), then read the normative [VM specification](docs/vm-spec.md), [encoding specification](docs/encoding-spec.md), [dispute state machine](docs/dispute-state-machine.md), [security model](docs/security-model.md), and [protocol vectors](docs/protocol-vectors.json). Changes to consensus-visible semantics require versioning and new vectors.
+
+The architecture overview is in [docs/architecture.md](docs/architecture.md), engineering decisions in [docs/decisions.md](docs/decisions.md), requirements and evidence in [docs/requirements.md](docs/requirements.md), and verified progress in [docs/progress.md](docs/progress.md).
 
 This is unaudited research and engineering software. It is not production-secure and must not custody real funds.
 

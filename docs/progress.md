@@ -1,5 +1,28 @@
 # Development progress
 
+## 2026-10-31 — BISECT protocol v1 specification lock
+
+### Completed
+
+- Read the repository engineering rules, requirements matrix, architecture, and decisions before design work.
+- Locked VM v1 semantics, program validation, transition/error behavior, and fixed-length traces in `docs/vm-spec.md`.
+- Locked ABI serialization, Keccak-256 domain separation, context/state/leaf/node hashing, proof ordering, and final output binding in `docs/encoding-spec.md`.
+- Specified proposal, single-active-game/retry behavior, leftmost-difference bisection, response deadlines, terminal proof, exact bond outcomes, accounting, and withdrawal paths in `docs/dispute-state-machine.md`.
+- Added the protocol summary/invariants/non-goals, threat assumptions, and cross-language vector fixture in `docs/protocol-v1.md`, `docs/security-model.md`, and `docs/protocol-vectors.json`.
+- Updated architecture, decision log, requirements traceability, README, and Windows/database verification records to match the locked protocol and current Phase 0 results.
+- No VM or dispute implementation was started. v1 is specified, not implemented, deployed, or audited.
+
+### Verification
+
+- Protocol vector check using viem `2.57.13` — passed: canonical input ABI bytes, all domain hashes, program/input/context hashes, sampled states/leaves, 64-leaf root, and final-state inclusion proof reproduced from the formulas.
+- `docs/protocol-vectors.json` — parsed successfully as JSON and independently recomputed against the locked formulas.
+- `pnpm check:all` — passed with exit code 0 after specification edits. It includes frozen install, environment and Docker checks, PostgreSQL/Prisma migration/read/write/restart persistence, lint, format, typecheck, Vitest, Next production build, Base Sepolia and Anvil RPC, Foundry build/test, and Playwright.
+
+### Readiness and limits
+
+- Protocol v1 is locked for implementation. Consensus-visible changes require a new version and vectors.
+- Future implementation gates remain: cross-language tests, VM bounds/fuzz tests, Solidity state/accounting tests, gas analysis, real Base Sepolia deployment evidence, and independent audit.
+
 ## 2026-10-31 — Phase 0 foundation and environment verification
 
 ### Completed

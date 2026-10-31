@@ -1,0 +1,179 @@
+{
+  "specification": {
+    "protocolVersion": 1,
+    "vmVersion": 1,
+    "encodingVersion": 1,
+    "hash": "Ethereum Keccak-256",
+    "abi": "Solidity standard abi.encode"
+  },
+  "domains": {
+    "program": "0x36dcb6f126e95703f41b72677e95ed5ae2216b9341a39a341bfc39339942bcb8",
+    "input": "0x87adbd1ef56abc102f61879cae94f8529940c50318e0573870bbf4386765b076",
+    "context": "0xaffdc7a93e13319d2f4c874a9459ef88a40c2886857f654c2d6c18e4e5baa298",
+    "state": "0xb0ea33da6e927eeb460ba9e893c5d0ba44f66b0a609871cef08a87275508655f",
+    "leaf": "0xdf14a58eb1003c9984b9e0c4ff10da82952bbd775c866cdd2dffa10d16894e87",
+    "node": "0x6371887e5c8647ae7b52ec2453cd333822ed8393216cb1c368718c0d901ab0c2"
+  },
+  "exampleExecution": {
+    "description": "MOVI R1, 5; ADD R0, R0, R1; HALT; then stutter through 63 transitions.",
+    "programHex": "0x010100050300000109000000",
+    "programByteLength": 12,
+    "programHash": "0x8bd430809f10829961294def8579777a20e40b810d836430474ae9057f8e6358",
+    "publicInputValues": ["7", "0", "0", "0", "0", "0", "0", "0"],
+    "publicInputAbiEncoded": "0x00000000000000000000000000000000000000000000000000000000000000070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "inputHash": "0x464bf222191dd4ea41e5ef60a4851174e04041d1e8cf0b965dfc4c674323c839",
+    "transitionCount": 63,
+    "leafCount": 64,
+    "executionContextHash": "0x7bfc5975e2f7dd1b5d039092fb4015540aa8fea2ae8d7b38623989e5d98a39b0",
+    "sampledStates": [
+      {
+        "index": 0,
+        "pc": 0,
+        "halted": false,
+        "registers": ["7", "0", "0", "0", "0", "0", "0", "0"],
+        "stateHash": "0xe1a184c3b38e9d6552bc776ccc219f3f19b516feffb3e8fe443fd047170bcb35",
+        "leafHash": "0x4b18427c442cfb9c93e059639dbc8990e0c3715870794fd0a60473de64d8c31a"
+      },
+      {
+        "index": 1,
+        "pc": 1,
+        "halted": false,
+        "registers": ["7", "5", "0", "0", "0", "0", "0", "0"],
+        "stateHash": "0x929c3d004a53b01d707a38e147c0fb35bc11f6c0f94cd8cd363fea2b0454a687",
+        "leafHash": "0xa694f46f280d17071542ad8814ca4467aae4c62a1781e9afd56c46fb9889416d"
+      },
+      {
+        "index": 2,
+        "pc": 2,
+        "halted": false,
+        "registers": ["12", "5", "0", "0", "0", "0", "0", "0"],
+        "stateHash": "0xe181e71cb9930434d18e9708975000146944a2ca2e458b86caa165f6dc8aaa49",
+        "leafHash": "0xf5bd4061679a32899f89e0edad26e57ace6c059c775c0c7bb91fe74a378409a0"
+      },
+      {
+        "index": 3,
+        "pc": 2,
+        "halted": true,
+        "registers": ["12", "5", "0", "0", "0", "0", "0", "0"],
+        "stateHash": "0x002f432c60273d3bf582ce51d1ea5eb3220ce5f088328998f5ed62a524039e16",
+        "leafHash": "0x9817aa38890db818163a1d6327198968c2153598eb7e9b766bff7ff7ae6e05a0"
+      },
+      {
+        "index": 63,
+        "pc": 2,
+        "halted": true,
+        "registers": ["12", "5", "0", "0", "0", "0", "0", "0"],
+        "stateHash": "0x002f432c60273d3bf582ce51d1ea5eb3220ce5f088328998f5ed62a524039e16",
+        "leafHash": "0xb55378fd17512dc17389d641d8a26bd213e224adc551e87d0fcec388dc6aa96c"
+      }
+    ],
+    "traceRoot": "0x7f4f87083aaa2914d8a9619cb507bcc6fc48611baf9c2c6d21509040e4199f0a",
+    "finalStateProof": {
+      "index": 63,
+      "siblingsBottomUp": [
+        "0x5abd3cf0ca6490f5b841efe86cc2fbd09cb98ae33d5c3cd44421f26afb6c6fca",
+        "0x54813e01db44e8b19891cacacc95eb63db926f28550c5ca627b1dc284ae4a67d",
+        "0x2f3e93f9a8e9ba00f616f3686da03040c0491be40d721792a04e46febce63c69",
+        "0xbafc2548c41f13d3812fbef5608b350bc6a170cc1ae711cb2ee5100f716c3074",
+        "0x87de0aeff88dd75bd10e531ae674c9ceb8673aef006efbecd5b810ba66c0cfec",
+        "0x4c1f479ed51f3ed86645f383547a71ab8d3a0378756536de80aa2c0906d2e813"
+      ]
+    },
+    "claimedOutput": "12"
+  },
+  "semanticCases": {
+    "arithmeticModulo2To64": [
+      {
+        "operation": "ADD",
+        "left": "18446744073709551615",
+        "right": "1",
+        "result": "0"
+      },
+      {
+        "operation": "SUB",
+        "left": "0",
+        "right": "1",
+        "result": "18446744073709551615"
+      },
+      {
+        "operation": "MUL",
+        "left": "18446744073709551615",
+        "right": "2",
+        "result": "18446744073709551614"
+      }
+    ],
+    "jnzRelativeToCurrentPc": {
+      "pc": 5,
+      "operandBytesHex": "0xfffe",
+      "signedOffset": -2,
+      "takenTarget": 3,
+      "notTakenTarget": 6
+    },
+    "haltStuttering": {
+      "state": {
+        "pc": 2,
+        "halted": true,
+        "registers": ["12", "5", "0", "0", "0", "0", "0", "0"]
+      },
+      "successorEqualsPredecessor": true
+    },
+    "traceShapes": [
+      {
+        "transitions": 63,
+        "states": 64,
+        "merkleLeaves": 64,
+        "proofSiblings": 6
+      },
+      {
+        "transitions": 255,
+        "states": 256,
+        "merkleLeaves": 256,
+        "proofSiblings": 8
+      },
+      {
+        "transitions": 1023,
+        "states": 1024,
+        "merkleLeaves": 1024,
+        "proofSiblings": 10
+      },
+      {
+        "transitions": 4095,
+        "states": 4096,
+        "merkleLeaves": 4096,
+        "proofSiblings": 12
+      }
+    ]
+  },
+  "invalidProgramCases": [
+    {
+      "name": "empty",
+      "programHex": "0x",
+      "error": "PROGRAM_EMPTY"
+    },
+    {
+      "name": "partial-instruction",
+      "programHex": "0x00",
+      "error": "PROGRAM_LENGTH_NOT_MULTIPLE_OF_4"
+    },
+    {
+      "name": "unknown-opcode",
+      "programHex": "0xff000000",
+      "error": "UNKNOWN_OPCODE"
+    },
+    {
+      "name": "reserved-mov-operand",
+      "programHex": "0x02000101",
+      "error": "NONZERO_RESERVED_OPERAND"
+    },
+    {
+      "name": "out-of-range-taken-jump",
+      "programHex": "0x0800ffff09000000",
+      "error": "JUMP_TARGET_OUT_OF_RANGE"
+    },
+    {
+      "name": "last-nonhalt-fallthrough",
+      "programHex": "0x00000000",
+      "error": "FALLTHROUGH_OUT_OF_RANGE"
+    }
+  ]
+}
