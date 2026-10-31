@@ -2,7 +2,7 @@
 
 BISECT is an early-stage optimistic computation verification protocol. A prover will commit to a bounded deterministic execution trace and bond funds; a challenger will be able to dispute a conflicting trace through an interactive bisection game.
 
-**Status: VM v1, ordered Merkle commitments, and off-chain trace SDK implemented.** The repository includes deterministic VM execution, canonical v1 trace roots and inclusion proofs, JSON-safe trace/proof artifacts, examples, and tests. The dispute contract, indexer, challenger service, wallet transactions, and testnet deployment are not implemented. No transaction, gas estimate, or dispute outcome is simulated.
+**Status: VM v1, ordered Merkle commitments, off-chain trace SDK, and Solidity one-step verifier implemented.** Solidity and TypeScript encodings, execution steps, and ordered state proofs match the checked-in shared vectors. The claim/game contract, indexer, challenger service, wallet transactions, and testnet deployment are not implemented. The verifier is unaudited. No transaction or dispute outcome is simulated.
 
 ## Repository layout
 
@@ -62,6 +62,8 @@ pnpm check:phase3
 pnpm merkle:vectors
 pnpm contracts:build
 pnpm contracts:test
+pnpm contracts:vectors
+pnpm check:phase4
 pnpm e2e
 pnpm check:all
 ```
@@ -70,7 +72,7 @@ Contract checks require Foundry. Database checks require the local PostgreSQL se
 
 ## Protocol status and assumptions
 
-**BISECT protocol v1 is specified and locked.** The VM, off-chain canonical commitments, Merkle proofs, and typed trace SDK are implemented and tested against known-answer vectors. Solidity dispute adjudication, financial operations, cross-language contract execution, and independent audit remain future work. The Account Ledger addendum is pending and no custody, escrow, bond settlement, withdrawal, or database-ledger feature is implemented. Start with [docs/protocol-v1.md](docs/protocol-v1.md), then read the normative [VM specification](docs/vm-spec.md), [encoding specification](docs/encoding-spec.md), [dispute state machine](docs/dispute-state-machine.md), [security model](docs/security-model.md), and [protocol vectors](docs/protocol-vectors.json). Changes to consensus-visible semantics require versioning and new vectors.
+**BISECT protocol v1 is specified and locked.** The VM, off-chain canonical commitments, Merkle proofs, typed trace SDK, and stateless Solidity one-step verifier are implemented and cross-checked against shared TypeScript-generated vectors. Claim/game adjudication, financial contract integration, wallet transactions, testnet deployment, and independent audit remain future work. The Account Ledger addendum is pending and no new custody, escrow, bond settlement, withdrawal, or database-ledger feature is part of this phase. Start with [docs/protocol-v1.md](docs/protocol-v1.md), then read the normative [VM specification](docs/vm-spec.md), [encoding specification](docs/encoding-spec.md), [dispute state machine](docs/dispute-state-machine.md), [security model](docs/security-model.md), and [protocol vectors](docs/protocol-vectors.json). Changes to consensus-visible semantics require versioning and new vectors.
 
 The architecture overview is in [docs/architecture.md](docs/architecture.md), engineering decisions in [docs/decisions.md](docs/decisions.md), requirements and evidence in [docs/requirements.md](docs/requirements.md), and verified progress in [docs/progress.md](docs/progress.md).
 

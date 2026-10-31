@@ -58,6 +58,13 @@ Material protocol choices below are accepted and locked for v1. Implementations 
 - **Reason:** Reuse locked consensus encodings while independently testing tree construction; prevent sorted-pair behavior from changing proof semantics.
 - **Consequences:** OpenZeppelin Contracts v5.5.0 `MerkleProof` is not used because its standard proof path uses commutative sorted-pair hashing and does not support the required position-sensitive hash. TypeScript vectors are the compatibility fixture for a future Solidity implementation. The Account Ledger addendum is pending; no custody, escrow, settlement, withdrawal, or database-ledger semantics are introduced.
 
+## ADR-0009: Stateless Solidity v1 transition verifier
+
+- **Status:** Accepted, 2026-10-31
+- **Decision:** Implement VM v1 validation, one-step execution, exact ABI/domain-separated hashes, and ordered inclusion verification in a stateless internal Solidity library. Each call recomputes program, input, and execution-context hashes from raw program bytes, fixed public input, and an approved transition budget; it authenticates both adjacent states against the same root before comparing the computed successor. No caller-provided version or context hash is trusted.
+- **Reason:** The dispute game needs a small reusable transition-verification primitive whose consensus behavior matches the locked VM/encoding specification and TypeScript implementation.
+- **Consequences:** Solidity tests consume deterministic vectors generated from the TypeScript VM/Merkle packages. The library does not store claims, manage games or deadlines, custody funds, settle bonds, expose wallet flows, or claim deployment/audit status. A future integration must preserve these vector results and separately test its full game/accounting state machine.
+
 ## Open release/operations decisions
 
 These are deployment and service choices, not undefined v1 state transitions:

@@ -1,6 +1,6 @@
 # BISECT architecture
 
-**Protocol status:** v1 semantics are specified and locked in `protocol-v1.md`. VM execution, ordered trace roots/proofs, and typed off-chain SDK APIs are implemented as described under Services. This document does not establish Solidity parity, deployment, or audit coverage. Changes to locked semantics require explicit versioning as described in `docs/decisions.md`.
+**Protocol status:** v1 semantics are specified and locked in `protocol-v1.md`. VM execution, ordered trace roots/proofs, typed off-chain SDK APIs, and the Solidity one-step/Merkle verifier are implemented. Cross-language encoding and transition vectors pass; this does not establish the correctness of the future game/accounting integration, deployment, or audit coverage. Changes to locked semantics require explicit versioning as described in `docs/decisions.md`.
 
 ## System boundary
 
@@ -37,9 +37,9 @@ The immutable verifier uses exact native-ETH wei amounts. It has no fee, treasur
 ## Services
 
 - **VM package:** bounded VM v1 execution, canonical ABI/Keccak encodings, fixed-length trace generation, and CLI are implemented and tested against TypeScript vectors.
-- **Merkle package:** ordered, position-sensitive v1 roots and bottom-up inclusion proofs are implemented. The package reuses the VM's locked ABI/hash functions, independently builds the tree, and compares its root with the VM result. Solidity compatibility execution remains planned.
+- **Merkle package:** ordered, position-sensitive v1 roots and bottom-up inclusion proofs are implemented. The package reuses the VM's locked ABI/hash functions, independently builds the tree, and compares its root with the VM result.
 - **SDK:** typed trace creation, state commitments, proof creation/verification, and JSON-safe trace/proof import/export are implemented. Wallet actions and deployed contract calls remain planned.
-- **Verifier contract:** authority for claims, games, deadlines, and credits. Specified, not yet implemented/deployed.
+- **Solidity verifier library:** bounded v1 program validation, one-step execution, domain-separated canonical hashing, and two adjacent ordered inclusion proofs are implemented and checked against TypeScript-generated vectors. The claim/game contract that integrates it with deadlines and credits remains specified, not implemented/deployed.
 - **Challenger:** independently recomputes traces, watches claims, and answers games with an isolated signer. Planned; availability and key custody are operator responsibilities.
 - **Indexer:** consumes public events and handles reorgs; data is derived and rebuildable. It is not a correctness authority.
 - **Web application:** will show actual wallet/RPC states and contract events; it must not fabricate transactions, gas, proofs, or dispute results.
