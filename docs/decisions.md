@@ -51,6 +51,13 @@ Material protocol choices below are accepted and locked for v1. Implementations 
 - **Reason:** The locked formats are Solidity ABI and EVM Keccak; a maintained EVM library reduces custom cryptographic/serialization code while the published known-answer vectors remain the compatibility check.
 - **Consequences:** The VM package has no wallet, provider, or contract calls. Any future viem upgrade must keep every encoding/hash vector byte-identical.
 
+## ADR-0008: Ordered TypeScript Merkle package and trace SDK
+
+- **Status:** Accepted, 2026-10-31
+- **Decision:** Keep the locked v1 ABI and domain-separated Keccak hash functions in `@bisect/vm` as the canonical hash implementation. `@bisect/merkle` generates traces with VM v1, independently constructs ordered Merkle levels using those functions, and checks its root against the VM-computed root. Inclusion verification uses the state-index bits to preserve left/right order. V1 does not pad; only approved transition counts and their exact power-of-two state counts are accepted. `@bisect/sdk` exposes typed trace, state commitment, proof, and canonical JSON APIs without wallet or contract calls.
+- **Reason:** Reuse locked consensus encodings while independently testing tree construction; prevent sorted-pair behavior from changing proof semantics.
+- **Consequences:** OpenZeppelin Contracts v5.5.0 `MerkleProof` is not used because its standard proof path uses commutative sorted-pair hashing and does not support the required position-sensitive hash. TypeScript vectors are the compatibility fixture for a future Solidity implementation. The Account Ledger addendum is pending; no custody, escrow, settlement, withdrawal, or database-ledger semantics are introduced.
+
 ## Open release/operations decisions
 
 These are deployment and service choices, not undefined v1 state transitions:

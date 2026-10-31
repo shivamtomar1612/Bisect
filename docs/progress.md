@@ -1,5 +1,29 @@
 # Development progress
 
+## 2026-10-31 — Phase 3 Merkle commitments and cryptographic SDK
+
+### Completed
+
+- Implemented `@bisect/merkle` using the locked v1 VM hash APIs and the real Phase 2 executor. It independently builds ordered left/right Keccak trees, checks the resulting root against the VM's root, binds state bytes to execution context and index, and produces bottom-up proofs with exact budget-derived depth.
+- Added strict trace/proof validation and canonical JSON import/export. Trace imports replay the VM; proof verification binds caller-supplied program, public input, budget, and expected root. uint64 values remain decimal strings.
+- Added typed SDK APIs for trace/root generation, state commitments, proof generation/verification, and artifact import/export.
+- Added deterministic standard-budget sampled proofs and a maximum-budget vector, plus tests for positive and altered proofs, wrong identities/index/depth, serialization precision, deterministic replay, nonhalting bounded traces, and v1 budget boundaries.
+- Confirmed the installed OpenZeppelin `v5.5.0` Merkle helper uses commutative sorted-pair hashing; BISECT's ordered verifier does not use it.
+- No Phase 2 VM semantics changed. No Solidity contract, wallet/escrow/withdrawal, account ledger, database ledger, or Base Sepolia deployment was started. The Account Ledger addendum is pending as confirmed by the project owner.
+
+### Verification
+
+- `pnpm install --frozen-lockfile` — passed; all 8 workspace projects up to date.
+- `pnpm merkle:vectors` — passed; regenerated and formatted `packages/merkle/fixtures/merkle-v1-vectors.json`.
+- `pnpm check:phase3` — passed with exit code 0: Biome lint (93 files; 47 informational guarded-record suggestions and no errors), format check (93 files), typecheck (all 7 scripted workspaces), Vitest (40 tests across 4 files), VM/Merkle/SDK package builds, and Next.js production build.
+- The checked-in fixture matches the existing protocol v1 64-leaf root; maximum-budget proof depth is 12. There is no Solidity parity result yet.
+
+### Limits and readiness
+
+- Merkle proofs establish indexed membership against a root; they do not prove the correctness of all transitions. The Solidity verifier/dispute implementation remains future work.
+- Solidity compatibility, live chain behavior, independent audit, data availability, and chain liveness are not established by this phase. The system remains unaudited.
+- **Phase 4 decision: GO** for cryptographic compatibility and verifier work. Ledger/custody features remain out of scope pending the separately authorized Account Ledger addendum.
+
 ## 2026-10-31 — Retrospective Phase 1/2 audit
 
 ### Result

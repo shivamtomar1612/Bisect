@@ -1,5 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "noEmit": true },
+  "compilerOptions": {
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@bisect/merkle": ["../merkle/src/index.ts"],
+      "@bisect/vm": ["../vm/src/index.ts"]
+    }
+  },
   "include": ["src/**/*.ts"]
 }

@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @bisect/web dev",
-    "build": "pnpm --filter @bisect/vm run build && pnpm --filter @bisect/web run build",
+    "build": "pnpm --filter @bisect/vm run build && pnpm --filter @bisect/merkle run build && pnpm --filter @bisect/sdk run build && pnpm --filter @bisect/web run build",
     "lint": "biome check .",
     "format": "biome format --write .",
     "format:check": "biome format .",
@@ -21,6 +21,7 @@
     "check:anvil": "node scripts/check-anvil.mjs",
     "contracts:build": "node scripts/run-foundry.mjs build",
     "contracts:test": "node scripts/run-foundry.mjs test",
+    "merkle:vectors": "pnpm --filter @bisect/vm run build && pnpm --filter @bisect/merkle run build && pnpm --filter @bisect/vm exec tsx ../../scripts/generate-merkle-vectors.mts && biome format --write packages/merkle/fixtures/merkle-v1-vectors.json",
     "db:up": "node scripts/run-docker.mjs compose up -d --wait --wait-timeout 60 postgres",
     "db:down": "node scripts/run-docker.mjs compose stop postgres",
     "db:health": "node scripts/run-docker.mjs compose exec -T postgres pg_isready -U bisect -d bisect",
@@ -30,6 +31,7 @@
     "db:restart-check": "node scripts/check-db-restart.mjs",
     "check:base-sepolia": "node scripts/check-base-sepolia.mjs",
     "check:environment": "node scripts/check-environment.mjs",
+    "check:phase3": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build",
     "check:all": "node scripts/check-all.mjs",
     "bisect": "node scripts/bisect.mjs"
   },

@@ -1,6 +1,6 @@
 # BISECT architecture
 
-**Protocol status:** v1 semantics are specified and locked in `protocol-v1.md`. The VM and its TypeScript encoding/proof utilities are implemented as described under Services and are tested in `packages/vm` and `tests/unit/vm.test.ts`. This document does not establish Solidity parity, deployment, or audit coverage. Changes to locked semantics require explicit versioning as described in `docs/decisions.md`.
+**Protocol status:** v1 semantics are specified and locked in `protocol-v1.md`. VM execution, ordered trace roots/proofs, and typed off-chain SDK APIs are implemented as described under Services. This document does not establish Solidity parity, deployment, or audit coverage. Changes to locked semantics require explicit versioning as described in `docs/decisions.md`.
 
 ## System boundary
 
@@ -36,7 +36,9 @@ The immutable verifier uses exact native-ETH wei amounts. It has no fee, treasur
 
 ## Services
 
-- **VM package:** bounded VM v1 execution, canonical ABI/Keccak encodings, fixed-length trace generation, trace roots, proofs, and CLI are implemented and tested against TypeScript known-answer vectors. The dedicated Merkle package and Solidity cross-language verification remain planned.
+- **VM package:** bounded VM v1 execution, canonical ABI/Keccak encodings, fixed-length trace generation, and CLI are implemented and tested against TypeScript vectors.
+- **Merkle package:** ordered, position-sensitive v1 roots and bottom-up inclusion proofs are implemented. The package reuses the VM's locked ABI/hash functions, independently builds the tree, and compares its root with the VM result. Solidity compatibility execution remains planned.
+- **SDK:** typed trace creation, state commitments, proof creation/verification, and JSON-safe trace/proof import/export are implemented. Wallet actions and deployed contract calls remain planned.
 - **Verifier contract:** authority for claims, games, deadlines, and credits. Specified, not yet implemented/deployed.
 - **Challenger:** independently recomputes traces, watches claims, and answers games with an isolated signer. Planned; availability and key custody are operator responsibilities.
 - **Indexer:** consumes public events and handles reorgs; data is derived and rebuildable. It is not a correctness authority.
@@ -48,3 +50,5 @@ The immutable verifier uses exact native-ETH wei amounts. It has no fee, treasur
 The protocol assumes Keccak-256 collision resistance, correct EVM/Solidity semantics, a non-upgradeable verifier, chain liveness, transaction inclusion, and an honest challenger able to observe the challenge window and act within the turn windows. It does not guarantee off-chain trace data availability, censorship resistance, or finality; chain reorg/finality and window values must be published per deployment. See `security-model.md`.
 
 Base Sepolia (chain ID `84532`) is the initial testnet target; local Anvil is the development chain. Local and public chain configuration are kept distinct. No contract address, deployment, audit, or production readiness is claimed.
+
+The Account Ledger addendum has not been authored yet. No wallet custody, escrow, bond settlement, withdrawal, or database ledger behavior is implemented under the current locked scope.

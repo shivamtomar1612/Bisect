@@ -99,10 +99,23 @@ importers:
 
   contracts: {}
 
-  packages/merkle: {}
+  packages/merkle:
+    dependencies:
+      '@bisect/vm':
+        specifier: workspace:*
+        version: link:../vm
+      viem:
+        specifier: 2.57.13
+        version: 2.57.13(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.6.7)
 
   packages/sdk:
     dependencies:
+      '@bisect/merkle':
+        specifier: workspace:*
+        version: link:../merkle
+      '@bisect/vm':
+        specifier: workspace:*
+        version: link:../vm
       viem:
         specifier: ^2.38.5
         version: 2.57.13(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
