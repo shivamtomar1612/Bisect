@@ -287,3 +287,32 @@ The repository was empty at initial setup. The initial foundation created one re
 - Tests do not prove trace archive availability, censorship resistance, reorganization/finality, economic adequacy of deployment windows/bonds, or the absence of all contract defects. The system remains unaudited and is not production-secure. No Base Sepolia deployment or automatic challenger is established.
 - **Phase 7 test gate: PASS. Phase 8 implementation: GO**, limited to local development. Deployment and meaningful-fund use remain separate review gates.
 - Full evidence and caveats: `docs/security-test-report.md`; phase gate: `docs/phase-7-acceptance.md`.
+
+## 2026-11-01 — Phase 8 indexer, PostgreSQL journal, and reconciliation
+
+### Completed
+
+- Added a polling indexer configured by explicit RPC, chain ID, registry, deployment block, confirmation depth, scan range, and reorganization bound. It persists raw and decoded logs, maintains hash-linked checkpoints, distinguishes observed/confirmed/orphaned records, and resumes idempotently.
+- Enforced a minimum one-descendant confirmation depth and corrected the exact-depth boundary so a block confirms when `head >= block + depth`.
+- Added normalized Prisma read models for wallets, claims, disputes, deposits/allocations, settlements, withdrawals, chain blocks/events, checkpoints, ledger accounts, journal entries/postings, and reconciliation history.
+- Added exact-wei double-entry postings for one-time bond receipt/lock, internal settlement liability transfers, and withdrawals. Journal entries are checked as balanced in PostgreSQL and append-only triggers reject updates/deletes. Dishonest prover bond records are marked slashed when the challenger receives the settlement.
+- Added read-only, paginated API routes for indexer state, account overview, wallet activity, claims, disputes, deposits, locked bonds, penalties, settlements/rewards, withdrawals, and reconciliation.
+- Added same-canonical-block reconciliation against contract custody, locked liabilities, total credits, per-wallet credits, solvency, and journal consistency. Reorganizations append inversals and rebuild derived views from canonical confirmed logs.
+- Added Phase 8 development scripts, `.env.example` settings, CI PostgreSQL/Anvil integration job, ADR-0015, `docs/ledger-reconciliation.md`, and the verification report.
+
+### Verification
+
+- `pnpm check:phase8` — passed after the final API and confirmation-boundary changes: lint, format check, strict TypeScript workspace typecheck, 51 Vitest tests, VM/Merkle/SDK/Next.js build, contract compilation/vector generation, 55 Foundry tests, Prisma generation/deploy, and actual PostgreSQL/Anvil integration.
+- Foundry stateful accounting invariants each ran 256 sequences × 500 calls (128,000 calls), with zero reverts. Verifier fuzz tests each ran 256 cases.
+- Prisma status — 8 migrations applied and schema up to date. PostgreSQL health check passed.
+- Actual final local integration (Anvil chain ID `1453966104`, registry `0x5fbdb2315678afecb367f032d93f642f64180aa3`): 17 real events indexed initially; 19 canonical events after a controlled withdrawal reorganization; 2 claims, 3 disputes, 5 deposits, 4 settlements, and 2 withdrawals. It verified pending-confirmation gating, event replay/restart idempotence, API pagination/validation, and journal constraints. Final rerun transaction hashes are recorded in `docs/phase-8-report.md`.
+- Journal result: 10 initial entries / 21 balanced postings; after one reorg reversal and replacement withdrawal, 13 entries / 27 postings, all balanced. Reconciliation matched before and after the reorg; final contract balance, locked liabilities, wallet credits, and surplus were all `0` wei. Reverting the confirmed withdrawal restored the exact `2000000000000000` wei credit before its replacement withdrawal.
+- `pnpm check:base-sepolia` — public RPC returned chain ID `84532`; no deployed registry address or deployment block is configured, so no public-chain events were indexed.
+- `pnpm check:environment` — Node 24.19.0, pnpm 11.25.0, Foundry/Anvil/Cast 1.8.7, Docker 29.9.2, and Compose 5.6.1 verified. CI YAML parsed locally; hosted CI has not run.
+
+### Readiness and limits
+
+- **Phase 8 local gate: PASS. Base Sepolia indexer operation: PARTIAL** until a real registry address and deployment block are configured and verified.
+- Confirmation depth is an operational threshold, not finality. The worker assumes one active writer per chain/registry and stops for reorgs deeper than its configured bound. Reconciliation checks at most 1,000 wallets per run and reports an explicit limit discrepancy.
+- The indexer and ledger are derived read models. Contract state remains authoritative. There is no independent audit or production-security claim.
+- Full evidence and assumptions: `docs/phase-8-report.md` and `docs/ledger-reconciliation.md`.

@@ -6,16 +6,24 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
+    "dev": "tsx src/main.ts",
+    "api": "tsx src/api-main.ts",
+    "indexer:once": "tsx src/run-once.ts",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:smoke": "tsx scripts/db-smoke.ts"
+    "db:smoke": "tsx scripts/db-smoke.ts",
+    "test:integration": "tsx tests/phase8-integration.ts"
   },
   "dependencies": {
+    "@bisect/merkle": "workspace:*",
+    "@bisect/sdk": "workspace:*",
+    "@bisect/vm": "workspace:*",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
-    "pg": "8.23.1"
+    "pg": "8.23.1",
+    "viem": "2.57.13"
   },
   "devDependencies": {
     "dotenv": "17.2.3",

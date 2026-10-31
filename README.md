@@ -2,13 +2,13 @@
 
 BISECT is an early-stage optimistic computation verification protocol. A prover will commit to a bounded deterministic execution trace and bond funds; a challenger will be able to dispute a conflicting trace through an interactive bisection game.
 
-**Status: VM v1, ordered Merkle commitments, the Solidity one-step verifier, and the integrated v1 dispute registry are implemented and locally tested.** The registry runs interactive leftmost-difference bisection, verifies the disputed step, and settles native-ETH bonds into pull credits. It is unaudited and has not been deployed to Base Sepolia; no production-security claim is made. The automatic challenger, wallet UI, indexer, and Account Ledger addendum remain pending.
+**Status: VM v1, ordered Merkle commitments, the Solidity one-step verifier, the integrated v1 dispute registry, and a local PostgreSQL event indexer/ledger are implemented and locally tested.** The registry runs interactive leftmost-difference bisection, verifies the disputed step, and settles native-ETH bonds into pull credits. The indexer exposes confirmed chain-derived read models and an append-only double-entry journal with reconciliation. The project is unaudited and has not been deployed to Base Sepolia; no production-security claim is made. The automatic challenger and wallet UI remain pending.
 
 ## Repository layout
 
 ```text
 apps/web          Next.js App Router interface
-apps/indexer      Chain event indexing service (planned)
+apps/indexer      Chain event indexing, read-only API, PostgreSQL models and ledger
 apps/challenger   Dispute automation service (planned)
 packages/vm       Bounded deterministic VM, v1 encodings and CLI
 packages/merkle   Ordered v1 trace roots, state commitments, and proofs
@@ -67,6 +67,7 @@ pnpm contracts:vectors
 pnpm check:phase4
 pnpm check:phase5
 pnpm check:phase6
+pnpm check:phase8
 pnpm e2e
 pnpm check:all
 ```
@@ -75,9 +76,15 @@ Contract checks require Foundry. Database checks require the local PostgreSQL se
 
 `pnpm phase6:anvil` builds the VM, Merkle package, and dispute contract; starts an isolated local Anvil chain; deploys the registry; mines a complete dishonest-prover challenge using two unlocked local test accounts; verifies event/accounting results; withdraws the challenger credit; and stops Anvil. It uses no testnet or private key.
 
+`pnpm check:phase8` runs the TypeScript and contract checks, starts local PostgreSQL if needed, applies Prisma migrations, and runs a real Anvil-to-PostgreSQL event-indexer integration scenario. The scenario uses actual local test-ETH transactions and verifies confirmation gating, restart/replay idempotence, API pagination, journal balance, reconciliation, and a controlled reorganization. It does not use Base Sepolia or establish deployment readiness.
+
+## Indexer and ledger
+
+The indexer requires explicit `INDEXER_RPC_URL`, `INDEXER_CHAIN_ID`, `INDEXER_CONTRACT_ADDRESS`, and `INDEXER_DEPLOYMENT_BLOCK` settings. It checks the RPC chain ID and refuses a checkpoint if the configured deployment block or confirmation depth changes. The default policy confirms blocks after six descendants; this is an operator-selected testnet policy, not protocol finality. Run `pnpm indexer:dev` to poll, `pnpm indexer:api` to serve read-only HTTP endpoints on `127.0.0.1:8787`, `pnpm indexer:run` for one poll, and `pnpm indexer:reconcile` to compare indexed liabilities with registry reads at the confirmed checkpoint. Database setup and posting semantics are in [docs/ledger-reconciliation.md](docs/ledger-reconciliation.md).
+
 ## Protocol status and assumptions
 
-**BISECT protocol v1 is specified and locked.** The VM, off-chain canonical commitments, Merkle proofs, Solidity one-step verifier, bonded claim admission, interactive dispute game, timeout settlement, and pull withdrawals are implemented. `BisectClaimRegistry` by itself remains fail-closed; `BisectDisputeRegistryV1` is the integrated registry. Local Foundry tests and a mined Anvil demonstration pass; Base Sepolia deployment, an automatic challenger, indexer, wallet UI, and independent audit remain future work. The Account Ledger addendum is still pending; there is no wallet custody or database financial ledger. See [docs/phase-6-report.md](docs/phase-6-report.md) for actual verification evidence.
+**BISECT protocol v1 is specified and locked.** The VM, off-chain canonical commitments, Merkle proofs, Solidity one-step verifier, bonded claim admission, interactive dispute game, timeout settlement, pull withdrawals, and Phase 8 event indexer/read ledger are implemented. `BisectClaimRegistry` by itself remains fail-closed; `BisectDisputeRegistryV1` is the integrated registry. Local Foundry, Anvil, and PostgreSQL checks provide development evidence only; Base Sepolia deployment, an automatic challenger, wallet UI, and independent audit remain outstanding. The ledger is a derived read model; on-chain contract state remains authoritative. See [docs/phase-6-report.md](docs/phase-6-report.md) and [docs/phase-8-report.md](docs/phase-8-report.md) for actual verification evidence.
 
 The architecture overview is in [docs/architecture.md](docs/architecture.md), engineering decisions in [docs/decisions.md](docs/decisions.md), requirements and evidence in [docs/requirements.md](docs/requirements.md), and verified progress in [docs/progress.md](docs/progress.md).
 

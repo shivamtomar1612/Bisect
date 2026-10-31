@@ -100,6 +100,13 @@ Material protocol choices below are accepted and locked for v1. Implementations 
 - **Reason:** A Merkle root authenticates membership but cannot retrieve leaves. The claim already exposes the bounded public context needed to recompute the valid trace, so proposer-archive availability is not a soundness dependency for an honest challenge. On-chain timeout outcomes already define the consequences of withheld required evidence.
 - **Consequences:** The prototype has a documented operator requirement but no archive service, manifest implementation, or retention monitor. Loss of all RPC/chain access, a challenger's inability to recompute, censorship, or missed deadlines remains a liveness risk; an unchallenged invalid claim can finalize. Any archive-oracle or grace-period design would alter v1 assumptions/economics and needs a new protocol version. See `docs/trace-integrity-specification.md`.
 
+## ADR-0015: Phase 8 chain-derived journal and reconciliation
+
+- **Status:** Accepted for the Phase 8 off-chain read prototype, 2026-11-01
+- **Decision:** Index public events from an explicit chain/registry/deployment block. Keep observations provisional until the configured block descendant depth (default six) is met; persist block hashes and recover from bounded reorganizations. Journal confirmed bond deposits as one entry debiting registry custody and crediting the corresponding locked liability, so a deposit/lock is not counted twice. Settlement reallocates locked liabilities to wallet withdrawal liabilities; withdrawal debits that wallet liability and credits custody. Fees remain disabled. Reconciliation compares journal liabilities and each known wallet credit with contract reads at one confirmed canonical block. Never let the database authorize or execute value movement.
+- **Reason:** The contract's event stream and getters are the source of truth, while the API needs replayable public history and independently checkable read balances.
+- **Consequences:** Journal rows and postings are append-only; a reorganization adds inverse audit entries and rebuilds derived read models from canonical confirmed events. A confirmation count is only a service policy, not consensus finality. The service currently supports one configured registry per process and assumes one active writer per chain/contract. No Base Sepolia deployment is configured; real integration evidence uses local Anvil and PostgreSQL. See `docs/ledger-reconciliation.md`.
+
 ## Open release/operations decisions
 
 These are deployment and service choices, not undefined v1 state transitions:

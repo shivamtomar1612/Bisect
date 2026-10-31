@@ -49,6 +49,8 @@ jobs:
       DATABASE_URL: postgresql://bisect:ci-only-test-password@localhost:5432/bisect?schema=public
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - uses: pnpm/action-setup@v4
         with:
           version: 11.25.0
@@ -60,6 +62,11 @@ jobs:
       - run: pnpm db:generate
       - run: pnpm --filter @bisect/indexer db:deploy
       - run: pnpm db:smoke
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.7
+      - run: pnpm contracts:build
+      - run: pnpm indexer:test:integration
 
   contracts:
     runs-on: ubuntu-latest

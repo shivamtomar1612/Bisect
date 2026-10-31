@@ -1,0 +1,2 @@
+ALTER TABLE "LedgerAccount"
+ALTER COLUMN "normalSide" DROP DEFAULT;

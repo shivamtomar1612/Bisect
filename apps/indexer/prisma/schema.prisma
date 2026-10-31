@@ -7,8 +7,351 @@ datasource db {
   provider = "postgresql"
 }
 
+enum BlockStatus {
+  OBSERVED
+  CONFIRMED
+  ORPHANED
+}
+
+enum ChainEventStatus {
+  OBSERVED
+  CONFIRMED
+  ORPHANED
+}
+
+enum ClaimStatus {
+  OPEN
+  GAME_ACTIVE
+  FINALIZED
+  REFUTED
+  UNKNOWN
+}
+
+enum DisputeStatus {
+  ACTIVE
+  PROVER_WON
+  CHALLENGER_WON
+  UNKNOWN
+}
+
+enum DisputePhase {
+  BISECTION
+  TERMINAL
+  CLOSED
+  UNKNOWN
+}
+
+enum BondKind {
+  PROVER
+  CHALLENGER
+}
+
+enum DepositStatus {
+  LOCKED
+  RELEASED
+  SLASHED
+}
+
+enum SettlementKind {
+  CLAIM_FINALIZATION
+  GAME_CREDIT
+}
+
+enum LedgerAccountType {
+  ASSET
+  LOCKED_LIABILITY
+  WITHDRAWABLE_LIABILITY
+}
+
+enum PostingSide {
+  DEBIT
+  CREDIT
+}
+
+enum JournalKind {
+  BOND_LOCK
+  BOND_TO_CREDIT
+  WITHDRAWAL
+  REORG_REVERSAL
+}
+
+enum ReconciliationStatus {
+  MATCH
+  MISMATCH
+  FAILED
+}
+
 model HealthCheck {
   id        Int      @id @default(autoincrement())
   status    String   @default("ok")
   checkedAt DateTime @default(now())
+}
+
+model WalletAccount {
+  id               String          @id @default(cuid())
+  chainId          Int
+  address          String
+  createdAt        DateTime        @default(now())
+  claims           Claim[]
+  disputes         Dispute[]
+  deposits         BondDeposit[]
+  settlements      Settlement[]    @relation("SettlementBeneficiary")
+  withdrawals      Withdrawal[]
+  ledgerAccounts   LedgerAccount[]
+
+  @@unique([chainId, address])
+  @@index([address])
+}
+
+model ChainBlock {
+  id          BigInt      @id @default(autoincrement())
+  chainId     Int
+  blockNumber BigInt
+  hash        String
+  parentHash  String
+  timestamp   DateTime?
+  status      BlockStatus @default(OBSERVED)
+  events      ChainEvent[]
+  createdAt   DateTime    @default(now())
+
+  @@unique([chainId, hash])
+  @@unique([chainId, blockNumber, hash])
+  @@index([chainId, blockNumber, status])
+}
+
+model ChainEvent {
+  id              BigInt           @id @default(autoincrement())
+  chainId         Int
+  blockNumber     BigInt
+  blockHash       String
+  transactionHash String
+  transactionIndex Int
+  logIndex        Int
+  contractAddress String
+  eventName       String
+  payload         Json
+  rawTopics       Json
+  rawData         String
+  status          ChainEventStatus @default(OBSERVED)
+  block           ChainBlock       @relation(fields: [chainId, blockHash], references: [chainId, hash], onDelete: Restrict)
+  createdAt       DateTime         @default(now())
+
+  @@unique([chainId, blockHash, transactionHash, logIndex])
+  @@index([chainId, contractAddress, blockNumber, logIndex])
+  @@index([status, blockNumber])
+}
+
+model IndexerCheckpoint {
+  chainId           Int
+  contractAddress   String
+  deploymentBlock   BigInt
+  confirmationDepth BigInt @default(6)
+  lastBlockNumber   BigInt
+  lastBlockHash     String
+  confirmedBlock    BigInt
+  updatedAt         DateTime @updatedAt
+
+  @@id([chainId, contractAddress])
+}
+
+model Claim {
+  id               String        @id @default(cuid())
+  chainId          Int
+  contractAddress  String
+  claimId          Decimal       @db.Decimal(78, 0)
+  proverWalletId   String
+  prover           WalletAccount @relation(fields: [proverWalletId], references: [id], onDelete: Restrict)
+  contextHash      String
+  traceRoot        String
+  transitionCount Int
+  claimedOutput    String
+  challengeDeadline BigInt
+  submittedBlock   BigInt
+  status           ClaimStatus   @default(OPEN)
+  sourceEventId    BigInt        @unique
+  disputes         Dispute[]
+  deposits         BondDeposit[]
+  settlements      Settlement[]
+  allocations      BondAllocation[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([chainId, contractAddress, claimId])
+  @@index([proverWalletId, submittedBlock])
+  @@index([chainId, contractAddress, status])
+}
+
+model Dispute {
+  id               String        @id @default(cuid())
+  claimRecordId    String
+  claim            Claim         @relation(fields: [claimRecordId], references: [id], onDelete: Restrict)
+  chainId          Int
+  contractAddress  String
+  claimId          Decimal       @db.Decimal(78, 0)
+  gameNumber       Decimal       @db.Decimal(78, 0)
+  challengerWalletId String
+  challenger       WalletAccount @relation(fields: [challengerWalletId], references: [id], onDelete: Restrict)
+  challengerRoot   String
+  initialHeight    Int
+  expectedResponder String
+  deadlineBlock    BigInt
+  phase            DisputePhase  @default(BISECTION)
+  differentIndex   Int?
+  status           DisputeStatus @default(ACTIVE)
+  outcome          Int?
+  sourceEventId    BigInt        @unique
+  deposits         BondDeposit[]
+  settlements      Settlement[]
+  allocations      BondAllocation[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([chainId, contractAddress, claimId, gameNumber])
+  @@index([challengerWalletId, createdAt])
+  @@index([status, deadlineBlock])
+}
+
+model BondDeposit {
+  id              String        @id @default(cuid())
+  chainId         Int
+  contractAddress String
+  claimRecordId   String
+  claim           Claim         @relation(fields: [claimRecordId], references: [id], onDelete: Restrict)
+  disputeId       String?
+  dispute         Dispute?      @relation(fields: [disputeId], references: [id], onDelete: Restrict)
+  walletId        String
+  wallet          WalletAccount @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  kind            BondKind
+  amountWei       Decimal       @db.Decimal(78, 0)
+  status          DepositStatus @default(LOCKED)
+  eventId         BigInt        @unique
+  blockNumber     BigInt
+  transactionHash String
+  createdAt       DateTime      @default(now())
+
+  @@index([chainId, contractAddress, claimRecordId, status])
+  @@index([walletId, blockNumber])
+}
+
+model BondAllocation {
+  id              String        @id @default(cuid())
+  chainId         Int
+  contractAddress String
+  claimRecordId   String
+  claim            Claim         @relation(fields: [claimRecordId], references: [id], onDelete: Restrict)
+  disputeId       String?
+  dispute         Dispute?      @relation(fields: [disputeId], references: [id], onDelete: Restrict)
+  allocationType  String
+  amountWei       Decimal       @db.Decimal(78, 0)
+  eventId         BigInt
+  createdAt       DateTime      @default(now())
+
+  @@unique([eventId, allocationType])
+  @@index([claimRecordId, createdAt])
+}
+
+model Settlement {
+  id                 String          @id @default(cuid())
+  chainId            Int
+  contractAddress    String
+  claimRecordId      String
+  claim              Claim           @relation(fields: [claimRecordId], references: [id], onDelete: Restrict)
+  disputeId          String?
+  dispute            Dispute?        @relation(fields: [disputeId], references: [id], onDelete: Restrict)
+  beneficiaryWalletId String
+  beneficiary         WalletAccount  @relation("SettlementBeneficiary", fields: [beneficiaryWalletId], references: [id], onDelete: Restrict)
+  kind               SettlementKind
+  outcome            Int?
+  amountWei          Decimal         @db.Decimal(78, 0)
+  eventId            BigInt          @unique
+  blockNumber        BigInt
+  transactionHash    String
+  createdAt          DateTime        @default(now())
+
+  @@index([beneficiaryWalletId, blockNumber])
+  @@index([claimRecordId, blockNumber])
+}
+
+model Withdrawal {
+  id              String        @id @default(cuid())
+  chainId         Int
+  contractAddress String
+  walletId        String
+  wallet          WalletAccount @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  amountWei       Decimal       @db.Decimal(78, 0)
+  eventId         BigInt        @unique
+  blockNumber     BigInt
+  transactionHash String
+  createdAt       DateTime      @default(now())
+
+  @@index([walletId, blockNumber])
+}
+
+model LedgerAccount {
+  id              String            @id @default(cuid())
+  code            String            @unique
+  name            String
+  type            LedgerAccountType
+  normalSide      PostingSide
+  chainId         Int?
+  contractAddress String?
+  walletId        String?
+  wallet          WalletAccount?    @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  postings        JournalPosting[]
+  createdAt       DateTime          @default(now())
+
+  @@index([chainId, type])
+  @@index([walletId, type])
+}
+
+model JournalTransaction {
+  id                  BigInt            @id @default(autoincrement())
+  chainId             Int
+  contractAddress     String
+  eventId             BigInt?           @unique
+  transactionHash     String
+  blockNumber         BigInt
+  blockHash           String
+  kind                JournalKind
+  reversalOfId        BigInt?           @unique
+  reversalOf          JournalTransaction? @relation("JournalReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversal            JournalTransaction? @relation("JournalReversal")
+  postings            JournalPosting[]
+  createdAt           DateTime          @default(now())
+
+  @@index([chainId, contractAddress, blockNumber])
+  @@index([transactionHash])
+}
+
+model JournalPosting {
+  id            BigInt             @id @default(autoincrement())
+  journalId     BigInt
+  journal       JournalTransaction @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  accountId     String
+  account       LedgerAccount      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  side          PostingSide
+  amountWei     Decimal            @db.Decimal(78, 0)
+  createdAt     DateTime           @default(now())
+
+  @@index([accountId, journalId])
+  @@unique([journalId, accountId, side, amountWei])
+}
+
+model ReconciliationRun {
+  id                     BigInt                @id @default(autoincrement())
+  chainId                Int
+  contractAddress        String
+  blockNumber            BigInt
+  blockHash              String
+  contractBalanceWei     Decimal               @db.Decimal(78, 0)
+  contractLockedWei      Decimal               @db.Decimal(78, 0)
+  contractCreditsWei     Decimal               @db.Decimal(78, 0)
+  contractLiabilitiesWei Decimal               @db.Decimal(78, 0)
+  indexedLockedWei       Decimal               @db.Decimal(78, 0)
+  indexedCreditsWei      Decimal               @db.Decimal(78, 0)
+  status                 ReconciliationStatus
+  discrepancies          Json
+  createdAt              DateTime              @default(now())
+
+  @@index([chainId, contractAddress, blockNumber])
 }
