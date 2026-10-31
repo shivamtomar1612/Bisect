@@ -55,16 +55,60 @@ function stateProof(states: typeof honestStates, index: number) {
   };
 }
 
-function transitionProof(states: typeof honestStates, root: string) {
+function transitionProof(states: typeof honestStates, root: string, predecessorIndex = 0) {
+  const predecessor = states[predecessorIndex];
+  const successor = states[predecessorIndex + 1];
+  if (predecessor === undefined || successor === undefined) {
+    throw new Error(`Missing adjacent states at index ${predecessorIndex}.`);
+  }
   return {
     program,
     publicInputAbiEncoded: honestArtifact.publicInputAbiEncoded,
     transitionCount,
     traceRoot: root,
-    stateIndex: 0,
-    predecessor: stateProof(states, 0),
-    claimedSuccessor: stateProof(states, 1),
+    stateIndex: predecessorIndex,
+    predecessor: stateProof(states, predecessorIndex),
+    claimedSuccessor: stateProof(states, predecessorIndex + 1),
   };
+}
+
+function bisectionRounds(proverStates: typeof honestStates, challengerStates: typeof honestStates) {
+  const proverLevels = levelsFor(proverStates);
+  const challengerLevels = levelsFor(challengerStates);
+  let baseIndex = 0;
+  let height = Math.log2(proverStates.length);
+  const result = [];
+  while (height > 0) {
+    const childLevel = height - 1;
+    const childPosition = baseIndex >> childLevel;
+    const proverLeft = proverLevels[childLevel]?.[childPosition];
+    const proverRight = proverLevels[childLevel]?.[childPosition + 1];
+    const challengerLeft = challengerLevels[childLevel]?.[childPosition];
+    const challengerRight = challengerLevels[childLevel]?.[childPosition + 1];
+    if (
+      proverLeft === undefined ||
+      proverRight === undefined ||
+      challengerLeft === undefined ||
+      challengerRight === undefined
+    ) {
+      throw new Error("Trace tree is missing a bisection child.");
+    }
+    result.push({
+      baseIndex,
+      height,
+      proverChildren: [proverLeft, proverRight],
+      challengerChildren: [challengerLeft, challengerRight],
+    });
+    if (proverLeft !== challengerLeft) {
+      // Locked v1 always selects the differing left subtree first.
+    } else if (proverRight !== challengerRight) {
+      baseIndex += 2 ** childLevel;
+    } else {
+      throw new Error("The supplied traces have no differing child at a differing parent.");
+    }
+    height -= 1;
+  }
+  return { expectedDifferentIndex: baseIndex, rounds: result };
 }
 
 const honestLevels = levelsFor(honestStates);
@@ -103,6 +147,26 @@ while (height > 0) {
 if (baseIndex !== 1)
   throw new Error(`Expected leftmost disagreement at state 1, got ${baseIndex}.`);
 
+const differentOutputStates = [...honestStates];
+const honestFinalState = differentOutputStates[transitionCount];
+if (honestFinalState === undefined || !honestFinalState.halted) {
+  throw new Error("Canonical halted final state is missing.");
+}
+differentOutputStates[transitionCount] = createState(honestFinalState.pc, true, [
+  43n,
+  ...honestFinalState.registers.slice(1),
+]);
+const differentOutputRoot = computeTraceRoot(
+  honestArtifact.executionContextHash,
+  differentOutputStates,
+);
+const differentOutputDispute = bisectionRounds(honestStates, differentOutputStates);
+if (differentOutputDispute.expectedDifferentIndex !== transitionCount) {
+  throw new Error(
+    `Expected different-output trace to diverge at ${transitionCount}, got ${differentOutputDispute.expectedDifferentIndex}.`,
+  );
+}
+
 const vector = {
   schema: "bisect.dispute-v1",
   source: "TypeScript @bisect/vm and @bisect/merkle-compatible ordered hashing",
@@ -116,6 +180,7 @@ const vector = {
     initial: stateProof(fraudulentStates, 0),
     terminal: stateProof(fraudulentStates, transitionCount),
     terminalTransition: transitionProof(fraudulentStates, fraudulentRoot),
+    lastTransition: transitionProof(honestStates, honestArtifact.traceRoot, transitionCount - 1),
   },
   challenger: {
     traceRoot: honestArtifact.traceRoot,
@@ -125,6 +190,19 @@ const vector = {
   },
   expectedDifferentIndex: 1,
   rounds,
+  differentOutput: {
+    traceRoot: differentOutputRoot,
+    claimedOutput: "43",
+    initial: stateProof(differentOutputStates, 0),
+    terminal: stateProof(differentOutputStates, transitionCount),
+    terminalTransition: transitionProof(
+      differentOutputStates,
+      differentOutputRoot,
+      transitionCount - 1,
+    ),
+    expectedDifferentIndex: differentOutputDispute.expectedDifferentIndex,
+    rounds: differentOutputDispute.rounds,
+  },
 };
 
 const target = new URL("../contracts/test/vectors/dispute-v1.json", import.meta.url);

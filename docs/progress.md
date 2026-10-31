@@ -1,5 +1,26 @@
 # Development progress
 
+## 2026-11-01 — Phase 6A trace integrity and data availability
+
+### Completed
+
+- Added `docs/trace-integrity-specification.md` defining same-output intermediate fraud, context-bound challenger and prover witnesses, the exact v1 mismatch proof path, trace publication/retrieval/retention assumptions, and consequences for unavailable data.
+- Preserved locked v1 semantics. No contract transition or settlement rule changed: challenges still open with a different context-bound root plus canonical initial-state proof, then ordered child hashes isolate the leftmost mismatch and the verifier checks the prover transition.
+- Made the same-output fraud assertion explicit; added Foundry coverage for an alternate challenger root with a different final output, forged initial membership evidence, and withheld prover response with deadline and single-settlement accounting checks.
+- Extended `packages/sdk/scripts/phase6-anvil.mts` to mine a complete proof-based same-output fraud game and a separate real prover-timeout game using Anvil test ETH.
+- Added ADR-0014 and updated architecture/security documentation. The two-location trace archive profile is operational guidance only; no archive service, manifest index, or retention monitor was added.
+
+### Verification
+
+- `pnpm check:phase6` — passed, exit 0: lint, formatting, all 7 workspace typechecks, 41 Vitest tests, all package and Next.js production builds, Foundry compilation, vector regeneration, 36 Foundry tests, and the expanded Anvil run.
+- Foundry suites: 10 dispute tests, 8 verifier tests, 16 claim registry tests, 1 OpenZeppelin smoke test, and 1 accounting invariant test passed. The invariant completed 256 runs and 128,000 calls with zero reverts or invariant failures.
+- Mined Anvil run: 21 successful transactions. The same-output fraudulent intermediate trace was isolated at state 1 in 6 rounds; the challenger received and withdrew 2 ETH. A separate withheld-response game settled after timeout, crediting 2 ETH to the challenger. Final escrow: 0 locked, 2 ETH credits/liabilities/balance; accounting invariant true. Full measurements are in [`phase-6a-report.md`](phase-6a-report.md).
+
+### Readiness and remaining risks
+
+- **Phase 6A local trace-integrity verification: PASS.** Same-output fraud is provable; missing proposer data during a game follows the locked timeout path.
+- The archive/manifest policy is not enforced by Solidity and has no implemented service. An unchallenged invalid claim can still finalize if no honest challenge is included before the challenge deadline. Chain inclusion, monitoring, independent audit, and Base Sepolia operations remain unverified; deployment/meaningful-fund use remains **NO-GO**.
+
 ## 2026-11-01 — Phase 6 interactive dispute and financial settlement
 
 ### Completed

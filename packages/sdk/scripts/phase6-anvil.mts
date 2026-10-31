@@ -81,6 +81,26 @@ function delay(milliseconds: number): Promise<void> {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
 }
 
+async function mineAnvilBlocks(count: number): Promise<void> {
+  if (!Number.isInteger(count) || count < 1 || count > 32) {
+    throw new Error(`Refusing to mine an invalid local block count: ${count}.`);
+  }
+  const response = await fetch(rpcUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "anvil_mine",
+      params: [`0x${count.toString(16)}`],
+    }),
+  });
+  const body: unknown = await response.json();
+  if (!response.ok || !isRecord(body) || body["error"] !== undefined) {
+    throw new Error("Anvil refused the bounded local block-mine request.");
+  }
+}
+
 async function waitForAnvil(
   processHandle: ReturnType<typeof spawn>,
   client: ReturnType<typeof createPublicClient>,
@@ -522,6 +542,200 @@ async function main(): Promise<void> {
       throw new Error("Mined registry events do not reconstruct the game result and withdrawal.");
     }
 
+    // A separate real game demonstrates the specified outcome when a prover withholds its
+    // required trace response. The challenger rebuilds its valid trace from the stored context;
+    // no prover archive or trace download is needed to open the challenge.
+    const availabilityBudget = 255 as const;
+    const availabilityHonestArtifact = createTraceCommitment(
+      program,
+      publicInput,
+      availabilityBudget,
+    );
+    const availabilityHonestTrace = availabilityHonestArtifact.states.map(parseStateJson);
+    const availabilityFraudulentTrace = [...availabilityHonestTrace];
+    const availabilityStateOne = availabilityFraudulentTrace[1];
+    if (availabilityStateOne === undefined) {
+      throw new Error("Availability scenario trace has no intermediate state.");
+    }
+    availabilityFraudulentTrace[1] = createState(availabilityStateOne.pc, false, [
+      9n,
+      ...availabilityStateOne.registers.slice(1),
+    ]);
+    const availabilityFraudulentRoot = computeTraceRoot(
+      availabilityHonestArtifact.executionContextHash,
+      availabilityFraudulentTrace,
+    );
+    if (availabilityFraudulentRoot === availabilityHonestArtifact.traceRoot) {
+      throw new Error("Availability scenario did not change the intermediate commitment.");
+    }
+    const availabilityInitial = availabilityHonestTrace[0];
+    const availabilityFraudulentInitial = availabilityFraudulentTrace[0];
+    const availabilityFraudulentFinal = availabilityFraudulentTrace[availabilityBudget];
+    if (
+      availabilityInitial === undefined ||
+      availabilityFraudulentInitial === undefined ||
+      availabilityFraudulentFinal === undefined
+    ) {
+      throw new Error("Availability scenario is missing an endpoint state.");
+    }
+
+    const unavailableClaimHash = await proverWallet.writeContract({
+      address: registryAddress,
+      abi: bisectDisputeRegistryV1Abi,
+      functionName: "submitClaim",
+      args: [
+        {
+          program,
+          publicInput,
+          transitionCount: availabilityBudget,
+          traceRoot: availabilityFraudulentRoot,
+          claimedOutput: 42n,
+          initialProof: {
+            state: stateTuple(availabilityFraudulentInitial),
+            siblings: siblingsFor(
+              availabilityHonestArtifact.executionContextHash,
+              availabilityFraudulentTrace,
+              0,
+            ),
+          },
+          finalProof: {
+            state: stateTuple(availabilityFraudulentFinal),
+            siblings: siblingsFor(
+              availabilityHonestArtifact.executionContextHash,
+              availabilityFraudulentTrace,
+              availabilityBudget,
+            ),
+          },
+        },
+      ],
+      value: bond,
+      gas: 1_000_000n,
+    });
+    await sendAndWait(publicClient, unavailableClaimHash, receipts);
+    const unavailableClaimId = 2n;
+    const unavailableChallengeHash = await challengerWallet.writeContract({
+      address: registryAddress,
+      abi: bisectDisputeRegistryV1Abi,
+      functionName: "challenge",
+      args: [
+        unavailableClaimId,
+        availabilityHonestArtifact.traceRoot,
+        {
+          state: stateTuple(availabilityInitial),
+          siblings: siblingsFor(
+            availabilityHonestArtifact.executionContextHash,
+            availabilityHonestTrace,
+            0,
+          ),
+        },
+      ],
+      value: bond,
+      gas: 600_000n,
+    });
+    await sendAndWait(publicClient, unavailableChallengeHash, receipts);
+    const unavailableGameNumber = 1n;
+    const unavailableGameBeforeTimeout = await publicClient.readContract({
+      address: registryAddress,
+      abi: bisectDisputeRegistryV1Abi,
+      functionName: "getGame",
+      args: [unavailableClaimId, unavailableGameNumber],
+    });
+    if (unavailableGameBeforeTimeout.expectedResponder.toLowerCase() !== prover.toLowerCase()) {
+      throw new Error("A withheld-data game did not give the first response to the prover.");
+    }
+    const currentBlock = await publicClient.getBlockNumber();
+    const blocksUntilTimeout = unavailableGameBeforeTimeout.deadlineBlock - currentBlock + 1n;
+    if (blocksUntilTimeout < 1n || blocksUntilTimeout > 32n) {
+      throw new Error("Unexpected turn deadline for the withheld-data demonstration.");
+    }
+    await mineAnvilBlocks(Number(blocksUntilTimeout));
+    const withheldTimeoutHash = await challengerWallet.writeContract({
+      address: registryAddress,
+      abi: bisectDisputeRegistryV1Abi,
+      functionName: "claimTimeout",
+      args: [unavailableClaimId, unavailableGameNumber],
+      gas: 500_000n,
+    });
+    const withheldTimeoutReceipt = await sendAndWait(publicClient, withheldTimeoutHash, receipts);
+    const unavailableGame = await publicClient.readContract({
+      address: registryAddress,
+      abi: bisectDisputeRegistryV1Abi,
+      functionName: "getGame",
+      args: [unavailableClaimId, unavailableGameNumber],
+    });
+    const unavailableClaim = await publicClient.readContract({
+      address: registryAddress,
+      abi: bisectDisputeRegistryV1Abi,
+      functionName: "getClaim",
+      args: [unavailableClaimId],
+    });
+    const unavailableCredit = await publicClient.readContract({
+      address: registryAddress,
+      abi: bisectDisputeRegistryV1Abi,
+      functionName: "withdrawableCredit",
+      args: [challenger],
+    });
+    const timeoutLocked = await publicClient.readContract({
+      address: registryAddress,
+      abi: bisectDisputeRegistryV1Abi,
+      functionName: "totalLockedBonds",
+    });
+    const timeoutCredits = await publicClient.readContract({
+      address: registryAddress,
+      abi: bisectDisputeRegistryV1Abi,
+      functionName: "totalCredits",
+    });
+    const timeoutLiabilities = await publicClient.readContract({
+      address: registryAddress,
+      abi: bisectDisputeRegistryV1Abi,
+      functionName: "totalLiabilities",
+    });
+    const timeoutContractBalance = await publicClient.getBalance({ address: registryAddress });
+    const timeoutSolvency = await publicClient.readContract({
+      address: registryAddress,
+      abi: bisectDisputeRegistryV1Abi,
+      functionName: "accountingInvariantHolds",
+    });
+    const timeoutEvents: Array<{
+      readonly name: string;
+      readonly args: Record<string, unknown>;
+    }> = [];
+    for (const log of withheldTimeoutReceipt.logs) {
+      if (log.address.toLowerCase() !== registryAddress.toLowerCase()) continue;
+      try {
+        const decoded = decodeEventLog({
+          abi: bisectDisputeRegistryV1Abi,
+          topics: log.topics,
+          data: log.data,
+          strict: false,
+        });
+        if (isRecord(decoded.args))
+          timeoutEvents.push({ name: decoded.eventName, args: decoded.args });
+      } catch {
+        // Ignore unrelated registry logs while locating the timeout and resolution records.
+      }
+    }
+    const timeoutEvent = timeoutEvents.find((event) => event.name === "GameTimedOut");
+    const timeoutResolution = timeoutEvents.find((event) => event.name === "GameResolved");
+    const missedResponder = timeoutEvent?.args["missedResponder"];
+    const timeoutWinner = timeoutResolution?.args["winner"];
+    if (
+      unavailableGame.outcome !== 4 ||
+      !unavailableGame.settled ||
+      unavailableClaim.status !== 4 ||
+      unavailableCredit !== 2n * bond ||
+      timeoutLocked !== 0n ||
+      timeoutCredits !== 2n * bond ||
+      timeoutLiabilities !== 2n * bond ||
+      timeoutContractBalance !== 2n * bond ||
+      !timeoutSolvency ||
+      typeof missedResponder !== "string" ||
+      missedResponder.toLowerCase() !== prover.toLowerCase() ||
+      timeoutWinner !== challenger
+    ) {
+      throw new Error("Withheld trace data did not produce the expected solvent prover timeout.");
+    }
+
     const gasUsed = receipts.reduce((sum, receipt) => sum + receipt.gasUsed, 0n);
     const executionFees = receipts.reduce(
       (sum, receipt) => sum + receipt.gasUsed * receipt.effectiveGasPrice,
@@ -562,7 +776,7 @@ async function main(): Promise<void> {
           differingStateIndex: 1,
           rounds,
           minedTransactionCount: receipts.length,
-          expectedTransactionCount: 18,
+          expectedTransactionCount: 21,
           terminalResolutionGas: terminalReceipt.gasUsed.toString(),
           withdrawalGas: withdrawalReceipt.gasUsed.toString(),
           totalGasUsed: gasUsed.toString(),
@@ -578,11 +792,11 @@ async function main(): Promise<void> {
           challengerFinalBalanceWei: finalChallengerBalance.toString(),
           proverInitialBalanceWei: initialProverBalance.toString(),
           proverFinalBalanceWei: finalProverBalance.toString(),
-          finalLockedWei: locked.toString(),
-          finalCreditsWei: credits.toString(),
-          finalLiabilitiesWei: liabilities.toString(),
-          finalContractBalanceWei: contractBalance.toString(),
-          accountingInvariantHolds: solvency,
+          finalLockedWei: timeoutLocked.toString(),
+          finalCreditsWei: timeoutCredits.toString(),
+          finalLiabilitiesWei: timeoutLiabilities.toString(),
+          finalContractBalanceWei: timeoutContractBalance.toString(),
+          accountingInvariantHolds: timeoutSolvency,
           reconstructedEvents: {
             bisectionRounds: bisectionEvents.length,
             childReveals: childRevealCount,
@@ -590,6 +804,15 @@ async function main(): Promise<void> {
             gameResolved: resolved !== undefined,
             bondCredit: credited !== undefined,
             withdrawal: withdrawn !== undefined,
+          },
+          withheldTraceScenario: {
+            claimId: unavailableClaimId.toString(),
+            outcome: "PROVER_TIMEOUT",
+            timedOutResponder: prover,
+            timeoutGas: withheldTimeoutReceipt.gasUsed.toString(),
+            challengerCreditWei: unavailableCredit.toString(),
+            registryBalanceWei: timeoutContractBalance.toString(),
+            accountingInvariantHolds: timeoutSolvency,
           },
           deploymentTransaction: deploymentReceipt.transactionHash,
         },

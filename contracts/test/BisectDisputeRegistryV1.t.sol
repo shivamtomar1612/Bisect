@@ -51,8 +51,16 @@ contract BisectDisputeRegistryV1Test {
         vm.deal(SECOND_PROVER, 20 ether);
     }
 
-    function testDishonestProverLosesAtFirstDifferingTransition() external {
+    function testCorrectFinalOutputDoesNotHideDishonestIntermediateTrace() external {
         uint256 claimId = _submit(true, PROVER);
+        BisectClaimRegistry.EndpointProof memory proverFinal = _endpointProof("$.prover.terminal");
+        BisectClaimRegistry.EndpointProof memory honestFinal =
+            _endpointProof("$.challenger.terminal");
+        require(proverFinal.state.halted && honestFinal.state.halted, "both endpoints halt");
+        require(
+            proverFinal.state.registers[0] == 42 && honestFinal.state.registers[0] == 42,
+            "same claimed output despite different intermediate trace"
+        );
         uint256 gameNumber = _challenge(claimId, true, CHALLENGER, BOND);
         _playBisection(claimId, gameNumber, true);
 
@@ -91,6 +99,56 @@ contract BisectDisputeRegistryV1Test {
         registry.claimTimeout(claimId, gameNumber);
         vm.expectRevert(abi.encodeWithSelector(BisectClaimRegistry.ClaimNotOpen.selector, claimId));
         registry.finalize(claimId);
+    }
+
+    function testDifferentChallengerOutputCannotSlashValidProver() external {
+        uint256 claimId = _submit(false, PROVER);
+        BisectDisputeRegistryV1.Game memory openedGame;
+        uint256 gameNumber;
+        vm.prank(CHALLENGER);
+        gameNumber = registry.challenge{ value: BOND }(
+            claimId,
+            vm.parseJsonBytes32(vectorJson, "$.differentOutput.traceRoot"),
+            _endpointProof("$.differentOutput.initial")
+        );
+
+        for (uint256 round = 0; round < 6; ++round) {
+            string memory prefix =
+                string.concat("$.differentOutput.rounds[", vm.toString(round), "]");
+            bytes32[] memory proverChildren =
+                vm.parseJsonBytes32Array(vectorJson, string.concat(prefix, ".proverChildren"));
+            bytes32[] memory challengerChildren =
+                vm.parseJsonBytes32Array(vectorJson, string.concat(prefix, ".challengerChildren"));
+            require(proverChildren.length == 2 && challengerChildren.length == 2, "ordered pairs");
+            vm.prank(PROVER);
+            registry.revealChildren(claimId, gameNumber, proverChildren[0], proverChildren[1]);
+            vm.prank(CHALLENGER);
+            registry.revealChildren(
+                claimId, gameNumber, challengerChildren[0], challengerChildren[1]
+            );
+        }
+
+        openedGame = registry.getGame(claimId, gameNumber);
+        require(openedGame.differentIndex == 63, "only final committed state differs");
+        BisectClaimRegistry.EndpointProof memory alternateFinal =
+            _endpointProof("$.differentOutput.terminal");
+        require(alternateFinal.state.halted && alternateFinal.state.registers[0] == 43);
+
+        vm.prank(CHALLENGER);
+        registry.revealTerminal(
+            claimId, gameNumber, _transitionProof("$.differentOutput.terminalTransition")
+        );
+        vm.prank(PROVER);
+        registry.revealTerminal(claimId, gameNumber, _transitionProof("$.prover.lastTransition"));
+
+        BisectDisputeRegistryV1.Game memory resolved = registry.getGame(claimId, gameNumber);
+        require(
+            resolved.outcome == BisectDisputeRegistryV1.GameOutcome.PROVER_TRANSITION_VALID,
+            "valid prover wins even though challenger endpoint differs"
+        );
+        require(registry.withdrawableCredit(PROVER) == BOND, "only challenger bond credited");
+        require(registry.totalLockedBonds() == BOND, "prover bond stays locked");
+        require(registry.accountingInvariantHolds(), "failed challenge preserves solvency");
     }
 
     function testHonestProverWinsAgainstDishonestChallengerAndCanFinalize() external {
@@ -235,6 +293,38 @@ contract BisectDisputeRegistryV1Test {
         require(registry.accountingInvariantHolds(), "both timeout paths remain solvent");
     }
 
+    function testWithheldProverTraceResponseLosesAtTimeoutAndCannotSettleTwice() external {
+        uint256 claimId = _submit(true, PROVER);
+        uint256 gameNumber = _challenge(claimId, true, CHALLENGER, BOND);
+        BisectDisputeRegistryV1.Game memory game = registry.getGame(claimId, gameNumber);
+        require(game.expectedResponder == PROVER, "prover must reveal the first trace pair");
+
+        vm.roll(game.deadlineBlock);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BisectDisputeRegistryV1.TurnDeadlinePassed.selector, game.deadlineBlock
+            )
+        );
+        registry.claimTimeout(claimId, gameNumber);
+
+        vm.roll(game.deadlineBlock + 1);
+        registry.claimTimeout(claimId, gameNumber);
+        game = registry.getGame(claimId, gameNumber);
+        require(game.outcome == BisectDisputeRegistryV1.GameOutcome.PROVER_TIMEOUT);
+        require(game.settled && registry.activeGameNumber(claimId) == 0, "game closes once");
+        require(registry.withdrawableCredit(CHALLENGER) == 2 * BOND, "both bonds credited once");
+        require(registry.totalLockedBonds() == 0, "no bonds remain locked");
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BisectDisputeRegistryV1.GameNotActive.selector, claimId, gameNumber
+            )
+        );
+        registry.claimTimeout(claimId, gameNumber);
+        require(registry.withdrawableCredit(CHALLENGER) == 2 * BOND, "repeat cannot pay twice");
+        require(registry.accountingInvariantHolds(), "withheld-data timeout remains solvent");
+    }
+
     function testChallengeWindowInclusiveAndFinalizationBlockedWhileGameActive() external {
         uint256 claimId = _submit(true, PROVER);
         BisectClaimRegistry.Claim memory claim = registry.getClaim(claimId);
@@ -265,6 +355,15 @@ contract BisectDisputeRegistryV1Test {
             claimId,
             vm.parseJsonBytes32(vectorJson, "$.prover.traceRoot"),
             _endpointProof("$.prover.initial")
+        );
+
+        BisectClaimRegistry.EndpointProof memory forgedInitial =
+            _endpointProof("$.challenger.initial");
+        forgedInitial.siblings[0] = bytes32(uint256(forgedInitial.siblings[0]) ^ 1);
+        vm.expectRevert(BisectDisputeRegistryV1.InvalidInitialAgreement.selector);
+        vm.prank(CHALLENGER);
+        registry.challenge{ value: BOND }(
+            claimId, vm.parseJsonBytes32(vectorJson, "$.challenger.traceRoot"), forgedInitial
         );
 
         honestInitial.state.registers[0] = 1;

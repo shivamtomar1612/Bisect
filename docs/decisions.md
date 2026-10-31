@@ -93,6 +93,13 @@ Material protocol choices below are accepted and locked for v1. Implementations 
 - **Reason:** A call prepared for an earlier closed game must not accidentally be applied to a later retry for the same claim. The game number makes stale-call rejection explicit at the ABI boundary.
 - **Consequences:** This is an ABI replay fence only. It does not change locked v1 proof contents, child-hash selection, responder order, deadlines, terminal verification, retry eligibility, or bond outcomes. Every failed stale call reverts without moving ETH or consuming a turn.
 
+## ADR-0014: Trace publication is operational; timeout remains the on-chain availability rule
+
+- **Status:** Accepted for the Phase 6A testnet prototype, 2026-11-01
+- **Decision:** Preserve the locked v1 challenge witness and game. Provers should publish a replay-validated canonical trace artifact to two independently operated public locations before claim submission, index its locations by chain/registry/claim/root in a public manifest after the actual claim ID is assigned, and retain it through terminal finality plus at least 30 days. The manifest, URLs, and transport checksums are discovery aids only. The contract does not require an archive or use it to decide a game. Challengers reconstruct the canonical trace from the claim's on-chain program/input/budget and use the existing root-mismatch, initial-proof, child-hash, and terminal-proof flow. A participant that withholds an active-game response is handled by the existing v1 timeout and bond rules; no data-availability extension is added.
+- **Reason:** A Merkle root authenticates membership but cannot retrieve leaves. The claim already exposes the bounded public context needed to recompute the valid trace, so proposer-archive availability is not a soundness dependency for an honest challenge. On-chain timeout outcomes already define the consequences of withheld required evidence.
+- **Consequences:** The prototype has a documented operator requirement but no archive service, manifest implementation, or retention monitor. Loss of all RPC/chain access, a challenger's inability to recompute, censorship, or missed deadlines remains a liveness risk; an unchallenged invalid claim can finalize. Any archive-oracle or grace-period design would alter v1 assumptions/economics and needs a new protocol version. See `docs/trace-integrity-specification.md`.
+
 ## Open release/operations decisions
 
 These are deployment and service choices, not undefined v1 state transitions:
