@@ -1,6 +1,10 @@
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import protocolVectors from "../../docs/protocol-vectors.json";
 import vector from "../../packages/vm/fixtures/vm-v1-known-answer.json";
+import { main as runVmCli } from "../../packages/vm/src/cli.js";
 import {
   APPROVED_BUDGETS,
   assemble,
@@ -23,6 +27,7 @@ import {
   serializeCanonicalJson,
   serializeStateAbi,
   step,
+  traceProgram,
   UINT64_MAX,
   VmError,
   verifyMerkleProof,
@@ -194,9 +199,22 @@ describe("execution traces and deterministic serialization", () => {
   });
 
   it("accepts every protocol budget and rejects other lengths", () => {
+    const haltProgram = program(Opcode.HALT, 0, 0, 0);
     for (const budget of APPROVED_BUDGETS) {
-      const trace = generateTrace(program(Opcode.HALT, 0, 0, 0), zeroInput, budget);
+      const trace = generateTrace(haltProgram, zeroInput, budget);
       expect(trace).toHaveLength(budget + 1);
+      const result = traceProgram(haltProgram, zeroInput, budget);
+      const proof = createMerkleProof(result.executionContextHash, result.trace, budget);
+      expect(proof).toHaveLength(Math.log2(budget + 1));
+      expect(
+        verifyMerkleProof(
+          result.executionContextHash,
+          budget,
+          result.trace[budget] as ReturnType<typeof initialState>,
+          proof,
+          result.traceRoot,
+        ),
+      ).toBe(true);
     }
     expectCode(() => execute(program(Opcode.HALT, 0, 0, 0), zeroInput, 64), "INVALID_BUDGET");
   });
@@ -353,6 +371,31 @@ describe("deterministic generated-program property checks", () => {
       expect(left.trace).toEqual(right.trace);
       expect(left.summary.traceRoot).toBe(right.summary.traceRoot);
       expect(left.trace).toHaveLength(64);
+    }
+  });
+});
+
+describe("VM CLI file output", () => {
+  it("awaits validate and inspect output writes and emits valid JSON", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "bisect-vm-cli-"));
+    try {
+      const validatePath = join(directory, "validate.json");
+      const inspectPath = join(directory, "inspect.json");
+      expect(
+        await runVmCli(["vm", "validate", "0x010100050300000109000000", "--output", validatePath]),
+      ).toBe(0);
+      expect(JSON.parse(await readFile(validatePath, "utf8"))).toMatchObject({
+        valid: true,
+        instructionCount: 3,
+      });
+
+      expect(await runVmCli(["vm", "inspect", "example:sum", "--output", inspectPath])).toBe(0);
+      expect(JSON.parse(await readFile(inspectPath, "utf8"))).toMatchObject({
+        vmVersion: 1,
+        instructionCount: 11,
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
     }
   });
 });

@@ -1,6 +1,6 @@
 # BISECT architecture
 
-**Protocol status:** v1 semantics are specified and locked in `protocol-v1.md`. This is a design document, not evidence that the VM, Merkle package, dispute contract, indexer, or challenger is implemented. Changes to locked semantics require explicit versioning as described in `docs/decisions.md`.
+**Protocol status:** v1 semantics are specified and locked in `protocol-v1.md`. The VM and its TypeScript encoding/proof utilities are implemented as described under Services and are tested in `packages/vm` and `tests/unit/vm.test.ts`. This document does not establish Solidity parity, deployment, or audit coverage. Changes to locked semantics require explicit versioning as described in `docs/decisions.md`.
 
 ## System boundary
 

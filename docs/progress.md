@@ -1,5 +1,29 @@
 # Development progress
 
+## 2026-10-31 — Retrospective Phase 1/2 audit
+
+### Result
+
+- Phase 1 specification audit — **PASS**. VM v1 semantics, ABI/Keccak encodings, ordered indexed Merkle construction/proofs, endpoint/output binding, bisection, terminal verification, timeouts, and settlement rules are versioned and locked in the protocol documents.
+- Phase 2 VM implementation audit — **PASS**. The TypeScript implementation matches the reviewed v1 rules for the exercised behaviors. The standalone `@bisect/merkle` package is still a Phase 3 extraction placeholder; working trace commitment helpers are currently in `packages/vm/src/encoding.ts`.
+- Corrected the CLI to await `validate` and `inspect` file writes and added an immediate-read regression test. Clarified architecture/Merkle package documentation. No protocol semantics or contract code changed.
+
+### Verification
+
+- `pnpm lint` — passed; Biome checked 85 files.
+- `pnpm format:check` — passed; Biome checked 85 files.
+- `pnpm typecheck` — passed for workspace packages with scripts.
+- `pnpm test` — passed; 30 tests across 2 files.
+- `pnpm build` — passed; VM package and Next.js production build.
+- VM CLI help, validate, inspect, disassemble, addition run, and bounded nonterminating trace — all passed. Addition returned `12`; the nonterminating trace contained 64 states and reported no halt within 63 transitions.
+- Full command evidence, file-level findings, and remaining assumptions: `docs/phase-1-2-audit.md`.
+
+### Limits and readiness
+
+- Merkle specification and TypeScript generation/proof utilities are ready; the standalone Merkle package API and Solidity parity are not implemented.
+- No contract, dispute settlement, testnet deployment, independent audit, or production-security claim is complete.
+- **Phase 3 decision: GO** for the planned Merkle package work using the v1 vectors as compatibility gates. Phase 3 was not started in this audit.
+
 ## 2026-10-31 — Phase 1 VM v1 engine
 
 ### Completed

@@ -53,7 +53,7 @@ export async function main(args: readonly string[] = process.argv.slice(2)): Pro
       throw new VmError("INVALID_CLI_INPUT", "A program argument is required.");
     const program = await loadProgram(parsed.program);
     if (command === "validate") {
-      print(
+      await print(
         {
           valid: true,
           instructionCount: program.instructions.length,
@@ -64,7 +64,7 @@ export async function main(args: readonly string[] = process.argv.slice(2)): Pro
       return 0;
     }
     if (command === "inspect") {
-      print(
+      await print(
         {
           vmVersion: 1,
           instructionCount: program.instructions.length,
