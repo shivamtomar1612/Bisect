@@ -172,6 +172,23 @@ contract BisectVerifierTest {
         _assertFalse(verifier.verifyOneStep(proof), "forged sibling");
 
         proof = _vector(0);
+        proof.predecessor.registers[7] ^= 1;
+        _assertFalse(verifier.verifyOneStep(proof), "mutated predecessor state bytes");
+
+        proof = _vector(0);
+        proof.claimedSuccessor.registers[7] ^= 1;
+        _assertFalse(verifier.verifyOneStep(proof), "mutated successor state bytes");
+
+        proof = _vector(0);
+        (proof.predecessorSiblings[0], proof.predecessorSiblings[1]) =
+        (proof.predecessorSiblings[1], proof.predecessorSiblings[0]);
+        _assertFalse(verifier.verifyOneStep(proof), "reordered predecessor siblings");
+
+        proof = _vector(0);
+        proof.traceRoot = bytes32(uint256(proof.traceRoot) ^ 1);
+        _assertFalse(verifier.verifyOneStep(proof), "mutated committed root");
+
+        proof = _vector(0);
         proof.publicInput[0] = 99;
         _assertFalse(verifier.verifyOneStep(proof), "wrong public input context");
 
@@ -194,6 +211,13 @@ contract BisectVerifierTest {
         }
         proof.successorSiblings = truncated;
         _assertFalse(verifier.verifyOneStep(proof), "truncated successor proof");
+    }
+
+    function testFuzzMutatedAuthenticatedStateCannotVerify(uint64 replacement) external view {
+        BisectVerifier.TransitionProof memory proof = _vector(0);
+        if (replacement == proof.predecessor.registers[7]) return;
+        proof.predecessor.registers[7] = replacement;
+        _assertFalse(verifier.verifyOneStep(proof), "a changed state cannot retain membership");
     }
 
     function testTypeScriptMalformedProgramClassificationsMatchSolidity() external view {
@@ -245,6 +269,41 @@ contract BisectVerifierTest {
         (, BisectVerifier.State memory nextState) = verifier.step(program, beforeState);
         uint16 expectedPc = condition == 0 ? 2 : uint16(int16(1) + relativeOffset);
         _assertEq(uint256(nextState.pc), uint256(expectedPc), "signed current-PC-relative branch");
+    }
+
+    function testFuzzJnzFullSignedOffsetRange(int16 relativeOffset) external view {
+        bytes memory program = hex"090000000800000009000000";
+        uint16 encodedOffset = uint16(relativeOffset);
+        program[6] = bytes1(uint8(encodedOffset >> 8));
+        program[7] = bytes1(uint8(encodedOffset));
+
+        uint64[8] memory registers;
+        registers[0] = 1;
+        BisectVerifier.State memory beforeState = BisectVerifier.State(1, false, registers);
+        (BisectVerifier.ProgramError programError,) = verifier.validateProgram(program);
+        (BisectVerifier.TransitionError transitionError, BisectVerifier.State memory nextState) =
+            verifier.step(program, beforeState);
+
+        if (relativeOffset < -1 || relativeOffset > 1) {
+            _assertEq(
+                uint256(programError),
+                uint256(BisectVerifier.ProgramError.JUMP_TARGET_OUT_OF_RANGE),
+                "static signed target classification"
+            );
+            _assertEq(
+                uint256(transitionError),
+                uint256(BisectVerifier.TransitionError.INVALID_SUCCESSOR_PC),
+                "dynamic signed target classification"
+            );
+        } else {
+            _assertEq(uint256(programError), 0, "valid signed target");
+            _assertEq(uint256(transitionError), 0, "valid signed transition");
+            _assertEq(
+                uint256(nextState.pc),
+                uint256(int256(1) + relativeOffset),
+                "full signed branch offset"
+            );
+        }
     }
 
     function testHaltedStateAlwaysStuttersWithoutFetching() external view {

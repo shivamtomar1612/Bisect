@@ -256,3 +256,34 @@
 ## Initial scaffold notes
 
 The repository was empty at initial setup. The initial foundation created one requirements integrity unit test and one browser test that checks the current phase is described honestly. The initial CI includes separate TypeScript, PostgreSQL, and Foundry jobs; it does not deploy on pushes.
+
+## 2026-11-01 — Phase 7 adversarial security and accounting invariants
+
+### Completed
+
+- Added `scripts/generate-phase7-security-vectors.mts` and generated Solidity-consumable fixtures from the actual TypeScript VM and ordered Merkle implementation. The vectors alter one intermediate state at twelve indices from 1 through 63 while retaining the same halted output.
+- Extended Solidity verifier tests for predecessor/successor byte mutation, sibling mutation/order, root mutation, authenticated-state fuzzing, and the full signed `int16` JNZ target range.
+- Added 48 seeded TypeScript Merkle property cases with full-width `bigint` public inputs and state/index/sibling/context tampering.
+- Added twelve Foundry end-to-end dispute regressions: each same-output fraudulent prover trace is bisected to its exact earliest differing state, terminally verified, refuted, and settled once to the challenger.
+- Added concurrent-game isolation, production-derived-registry reverting/reentrant withdrawal, unknown-claim challenge/timeout, and forced-ETH-surplus tests.
+- Added a stateful invariant handler for the operative `BisectDisputeRegistryV1`. It checks locked obligations, liabilities, solvency, per-claim beneficiary attribution, withdrawals, closure, and payout conservation.
+- Added `pnpm security:vectors` and `pnpm check:phase7`. No locked protocol semantics or production contract logic changed; no verified production defect required a code fix.
+- Added the Phase 7 security test report and acceptance decision.
+
+### Verification
+
+- `pnpm check:phase7` — passed with exit code 0 using `FOUNDRY_INVARIANT_RUNS=32` and `FOUNDRY_INVARIANT_DEPTH=80`.
+- Biome lint — passed with no errors (82 informational suggestions); formatting — passed across 118 files.
+- TypeScript typecheck — passed across all seven applicable workspace projects. Vitest — **42 tests passed across 5 files**.
+- VM, Merkle, SDK, and Next.js production builds — passed.
+- Foundry build — passed with Foundry 1.8.7 and Solidity 0.8.30. Foundry — **55 tests passed across 7 suites**, including 16 Phase 7 adversarial cases. Both stateful accounting invariants each ran 32 sequences × 80 calls (2,560 calls) with zero reverts/failures. Verifier fuzz properties each ran 256 cases.
+- Mined local Anvil demonstration — passed on chain ID 31337 with 21 transactions; state index 1 was refuted and the challenger received a real local test-ETH pull credit. The withheld-prover scenario also timed out and settled according to v1. These are not Base Sepolia measurements.
+- `forge fmt` — passed.
+- No failing fuzz seed or protocol counterexample remains. A test-fixture child-pair orientation error found during development was corrected; it did not identify a production-contract defect.
+
+### Limits and readiness
+
+- Protocol correctness still assumes Keccak collision resistance, correct EVM/compiler behavior, chain liveness, timely transaction inclusion, and an honest challenger with trace reconstruction, bond, and gas resources.
+- Tests do not prove trace archive availability, censorship resistance, reorganization/finality, economic adequacy of deployment windows/bonds, or the absence of all contract defects. The system remains unaudited and is not production-secure. No Base Sepolia deployment or automatic challenger is established.
+- **Phase 7 test gate: PASS. Phase 8 implementation: GO**, limited to local development. Deployment and meaningful-fund use remain separate review gates.
+- Full evidence and caveats: `docs/security-test-report.md`; phase gate: `docs/phase-7-acceptance.md`.

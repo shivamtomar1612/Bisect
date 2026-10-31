@@ -36,6 +36,8 @@ Each bisection level compares both parties' ordered child hashes and descends le
 
 The base contract defines exact native-ETH wei accounting, no fee or treasury, no admin withdrawal, and caller-only pull withdrawals. Its public submission and finalization paths revert when deployed alone, so it accepts no user bond. `BisectDisputeRegistryV1` reuses the internal claim/accounting paths and guards finalization against active games. `totalLiabilities` equals locked bonds plus credits and must not exceed contract balance. Forced ETH is surplus, not user credit. Claim admission, challenge bonds, game settlement, timeouts, and finalization have Foundry coverage and a mined local Anvil end-to-end run.
 
+Phase 7 adds generated intermediate-mismatch vectors and a production-registry invariant handler. The invariant accounts for each prover/challenger bond and beneficiary credit across two claims, complete games, timeouts, finalization, and withdrawals. Tests also exercise callback reentrancy, reverting recipients, unknown-claim settlement attempts, and forced ETH. This remains local test evidence; it does not establish an independent audit or chain-level liveness/data availability.
+
 ## Services
 
 - **VM package:** bounded VM v1 execution, canonical ABI/Keccak encodings, fixed-length trace generation, and CLI are implemented and tested against TypeScript vectors.

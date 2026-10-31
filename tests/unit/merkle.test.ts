@@ -201,4 +201,58 @@ describe("protocol v1 ordered trace commitments", () => {
     expect(first.traceRoot).toBe(second.traceRoot);
     expect(serializeTraceCommitment(first)).toBe(serializeTraceCommitment(second));
   });
+
+  it("property-checks state, index, context, and proof tampering across seeded traces", () => {
+    const mask = (1n << 64n) - 1n;
+    let seed = 0x8b5ad4cef1239071n;
+    const nextUint64 = () => {
+      seed ^= seed << 13n;
+      seed ^= seed >> 7n;
+      seed ^= seed << 17n;
+      seed &= mask;
+      return seed;
+    };
+
+    for (let sample = 0; sample < 48; sample += 1) {
+      const publicInput = Array.from({ length: 8 }, () => nextUint64().toString());
+      const trace = createTraceCommitment("0x09000000", publicInput, 63);
+      const index = Number(nextUint64() % 64n);
+      const proof = createStateProof(trace, index);
+      const context = {
+        program: "0x09000000",
+        publicInput,
+        transitionCount: 63,
+        expectedRoot: trace.traceRoot,
+      };
+
+      expect(verifyStateProof(proof, context)).toBe(true);
+      expect(
+        verifyStateProof(
+          {
+            ...proof,
+            state: {
+              ...proof.state,
+              registers: proof.state.registers.map((value, register) =>
+                register === 7 ? (BigInt(value) ^ 1n).toString() : value,
+              ),
+            },
+          },
+          context,
+        ),
+      ).toBe(false);
+      expect(verifyStateProof({ ...proof, stateIndex: (index + 1) % 64 }, context)).toBe(false);
+      expect(
+        verifyStateProof(
+          { ...proof, siblingsBottomUp: [...proof.siblingsBottomUp].reverse() },
+          context,
+        ),
+      ).toBe(false);
+      expect(
+        verifyStateProof(proof, {
+          ...context,
+          publicInput: ["1", ...publicInput.slice(1)],
+        }),
+      ).toBe(false);
+    }
+  });
 });
