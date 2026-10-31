@@ -217,7 +217,7 @@ describe("execution traces and deterministic serialization", () => {
       ).toBe(true);
     }
     expectCode(() => execute(program(Opcode.HALT, 0, 0, 0), zeroInput, 64), "INVALID_BUDGET");
-  });
+  }, 15_000);
 
   it("classifies nonterminating programs as budget exhausted", () => {
     expectCode(

@@ -4,10 +4,10 @@ pragma solidity 0.8.30;
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { BisectVerifier } from "./BisectVerifier.sol";
 
-/// @notice Bonded v1 claims with exact-wei escrow and caller-only pull withdrawals.
-/// @dev This phase deliberately has no challenge or dispute-resolution entrypoint. Claims can
-///      only be finalized after their fixed challenge window; deployments are not dispute-secure
-///      until a later phase adds the complete v1 game.
+/// @notice Phase 5 escrow/accounting base for v1 claims.
+/// @dev This base deliberately accepts no claims and settles none: without the dispute game, it
+///      cannot release a bond safely. A dispute-enabled derived deployment must explicitly expose
+///      `_submitClaim` and authorize finalization only after the complete v1 game permits it.
 contract BisectClaimRegistry is ReentrancyGuard {
     uint16 public constant PROTOCOL_VERSION = 1;
     uint16 public constant VM_VERSION = 1;
@@ -71,7 +71,9 @@ contract BisectClaimRegistry is ReentrancyGuard {
     error ClaimNotOpen(uint256 claimId);
     error ChallengeWindowOpen(uint256 deadline);
     error ActiveGame(uint256 claimId);
+    error DisputeProtocolUnavailable();
     error BondNotLocked(uint256 claimId);
+    error InvalidBondSettlement();
     error NoWithdrawableCredit();
     error WithdrawalFailed();
     error UnexpectedEther();
@@ -114,12 +116,13 @@ contract BisectClaimRegistry is ReentrancyGuard {
         turnWindowBlocks = turnWindowBlocks_;
     }
 
-    /// @notice Register a result commitment after authenticating canonical initial/final states.
-    function submitClaim(ClaimSubmission calldata submission)
-        external
-        payable
-        returns (uint256 claimId)
-    {
+    /// @notice Disabled in the Phase 5 base until an integrated dispute game is available.
+    function submitClaim(ClaimSubmission calldata) public payable virtual returns (uint256) {
+        revert DisputeProtocolUnavailable();
+    }
+
+    /// @dev Shared claim validation and escrow transition for a dispute-enabled derived contract.
+    function _submitClaim(ClaimSubmission calldata submission) internal returns (uint256 claimId) {
         if (msg.value != bondWei) revert IncorrectBond(bondWei, msg.value);
         ClaimHashes memory hashes = _validateSubmission(submission);
         bytes32 proposalKey = keccak256(
@@ -135,8 +138,7 @@ contract BisectClaimRegistry is ReentrancyGuard {
         uint256 deadline = block.number + challengeWindowBlocks;
         _storeClaim(claimId, submission, hashes, deadline);
 
-        totalLockedBonds += msg.value;
-        totalLiabilities += msg.value;
+        _recordIncomingBond();
 
         emit ClaimSubmitted(
             claimId,
@@ -150,27 +152,13 @@ contract BisectClaimRegistry is ReentrancyGuard {
         );
     }
 
-    /// @notice Permissionless unchallenged settlement to the prover's pull credit.
-    /// @dev `GAME_ACTIVE` is included as a future-game guard. The present contract has no
-    ///      challenge entrypoint, so only the later dispute implementation can enter that state.
-    function finalize(uint256 claimId) external {
+    /// @notice Phase 5 fail-closed guard; this base has no operative dispute protocol.
+    /// @dev A Phase 6 derived deployment may override this entrypoint. It must prove that no
+    ///      dispute is active before calling `_finalizeClaimAfterDisputeResolution`.
+    function finalize(uint256 claimId) external virtual {
         Claim storage claim = _requireClaim(claimId);
-        if (claim.status != ClaimStatus.OPEN) {
-            if (claim.status == ClaimStatus.GAME_ACTIVE) revert ActiveGame(claimId);
-            revert ClaimNotOpen(claimId);
-        }
-        if (block.number <= claim.challengeDeadline) {
-            revert ChallengeWindowOpen(claim.challengeDeadline);
-        }
-        if (!claim.proposerBondLocked) revert BondNotLocked(claimId);
-
-        claim.proposerBondLocked = false;
-        claim.status = ClaimStatus.FINALIZED;
-        totalLockedBonds -= bondWei;
-        totalCredits += bondWei;
-        withdrawableCredit[claim.prover] += bondWei;
-
-        emit ClaimFinalized(claimId, claim.prover, bondWei);
+        _requireFinalizableOpenClaim(claimId, claim);
+        revert DisputeProtocolUnavailable();
     }
 
     /// @notice Withdraw the caller's complete available credit to the caller's wallet.
@@ -212,6 +200,45 @@ contract BisectClaimRegistry is ReentrancyGuard {
     function _requireClaim(uint256 claimId) internal view returns (Claim storage claim) {
         claim = _claims[claimId];
         if (claim.status == ClaimStatus.NONE) revert UnknownClaim(claimId);
+    }
+
+    /// @dev Records one exact incoming prover or challenger bond in shared aggregate accounting.
+    ///      Call only after the operation has validated its claim and cryptographic evidence.
+    function _recordIncomingBond() internal {
+        if (msg.value != bondWei) revert IncorrectBond(bondWei, msg.value);
+        totalLockedBonds += msg.value;
+        totalLiabilities += msg.value;
+    }
+
+    /// @dev Moves locked ETH to a pull credit without changing total liabilities.
+    ///      Phase 6 must call this only after an on-chain game transition determines the beneficiary.
+    function _moveLockedBondToCredit(address beneficiary, uint256 amountWei) internal {
+        if (beneficiary == address(0) || amountWei == 0) revert InvalidBondSettlement();
+        totalLockedBonds -= amountWei;
+        totalCredits += amountWei;
+        withdrawableCredit[beneficiary] += amountWei;
+    }
+
+    /// @dev Shared accounting transition for a Phase 6, proof-authorized finalization override.
+    function _finalizeClaimAfterDisputeResolution(uint256 claimId) internal {
+        Claim storage claim = _requireClaim(claimId);
+        _requireFinalizableOpenClaim(claimId, claim);
+
+        claim.proposerBondLocked = false;
+        claim.status = ClaimStatus.FINALIZED;
+        _moveLockedBondToCredit(claim.prover, bondWei);
+        emit ClaimFinalized(claimId, claim.prover, bondWei);
+    }
+
+    function _requireFinalizableOpenClaim(uint256 claimId, Claim storage claim) private view {
+        if (claim.status != ClaimStatus.OPEN) {
+            if (claim.status == ClaimStatus.GAME_ACTIVE) revert ActiveGame(claimId);
+            revert ClaimNotOpen(claimId);
+        }
+        if (block.number <= claim.challengeDeadline) {
+            revert ChallengeWindowOpen(claim.challengeDeadline);
+        }
+        if (!claim.proposerBondLocked) revert BondNotLocked(claimId);
     }
 
     function _isInitialState(BisectVerifier.State calldata state, uint64[8] calldata publicInput)

@@ -58,19 +58,33 @@ Material protocol choices below are accepted and locked for v1. Implementations 
 - **Reason:** Reuse locked consensus encodings while independently testing tree construction; prevent sorted-pair behavior from changing proof semantics.
 - **Consequences:** OpenZeppelin Contracts v5.5.0 `MerkleProof` is not used because its standard proof path uses commutative sorted-pair hashing and does not support the required position-sensitive hash. TypeScript vectors are the compatibility fixture for a future Solidity implementation. The Account Ledger addendum is pending; no custody, escrow, settlement, withdrawal, or database-ledger semantics are introduced.
 
-## ADR-0009: Phase 5 native-ETH claim escrow boundary
+## ADR-0009: Phase 5 native-ETH claim escrow boundary (superseded for public entrypoints)
 
-- **Status:** Accepted for Phase 5 implementation, 2026-10-31
+- **Status:** Accepted for the initial Phase 5 implementation; public entrypoints superseded by ADR-0011, 2026-10-31
 - **Decision:** Implement a non-upgradeable claim registry with monotonic IDs, an exact immutable prover bond, canonical initial/final trace proof checks, duplicate-submission prevention per prover/context/root/output, a fixed block challenge deadline, unchallenged finalization to a caller-only pull credit, and a checks-effects-interactions withdrawal guarded by OpenZeppelin `ReentrancyGuard`. Fees are zero. No administrator can move funds. Reject ordinary ETH transfers; forced ETH remains unallocated surplus. The Base mainnet chain ID is rejected by the constructor; Anvil and Base Sepolia remain allowed.
 - **Reason:** Establish the first real bond/accounting layer while keeping keys in external wallets and implementing only the financial behaviors explicitly authorized for this phase.
-- **Consequences:** The current registry has no challenge entrypoint or dispute resolution. Its endpoint evidence does not establish intermediate execution correctness; its finalization path is unsafe for optimistic claims until the Phase 6 game is integrated. Foundry economic parameters are test fixtures only. The Account Ledger addendum remains pending, and no wallet custody or database accounting is introduced.
+- **Consequences:** The initial implementation allowed unchallenged finalization before any dispute game existed. Phase 5.5 disables both public claim admission and finalization in the base contract; only a dispute-enabled derived contract may expose the internal claim path. Test harness behavior is not production settlement. Foundry economic parameters are test fixtures only. The Account Ledger addendum remains pending, and no wallet custody or database accounting is introduced.
 
-## ADR-0009: Stateless Solidity v1 transition verifier
+## ADR-0010: Stateless Solidity v1 transition verifier
 
 - **Status:** Accepted, 2026-10-31
 - **Decision:** Implement VM v1 validation, one-step execution, exact ABI/domain-separated hashes, and ordered inclusion verification in a stateless internal Solidity library. Each call recomputes program, input, and execution-context hashes from raw program bytes, fixed public input, and an approved transition budget; it authenticates both adjacent states against the same root before comparing the computed successor. No caller-provided version or context hash is trusted.
 - **Reason:** The dispute game needs a small reusable transition-verification primitive whose consensus behavior matches the locked VM/encoding specification and TypeScript implementation.
 - **Consequences:** Solidity tests consume deterministic vectors generated from the TypeScript VM/Merkle packages. The library does not store claims, manage games or deadlines, custody funds, settle bonds, expose wallet flows, or claim deployment/audit status. A future integration must preserve these vector results and separately test its full game/accounting state machine.
+
+## ADR-0011: Fail-closed pre-dispute claim registry
+
+- **Status:** Accepted, 2026-10-31
+- **Decision:** The Phase 5 base `BisectClaimRegistry` must reject public claim submissions and finalization while the challenge/bisection protocol is absent. Preserve the validated submission and accounting implementation as internal helpers for reuse by a derived Phase 6 contract. Do not add an administrator-controlled readiness switch.
+- **Reason:** Endpoint proofs authenticate only the initial and final states. They cannot justify accepting and later releasing a prover bond when an intermediate trace transition may be invalid. Disabling finalization alone could permanently trap user deposits, so admission must also fail closed.
+- **Consequences:** The base contract is not deployable as a claim service and cannot accept bonds. Test-only harnesses may expose internal helpers to preserve regression coverage, but tests must label this seam explicitly. Phase 6 is a fresh deployment; no Phase 5 deployment exists to upgrade or migrate.
+
+## ADR-0012: Single-contract dispute and escrow integration
+
+- **Status:** Accepted for Phase 6 design, 2026-10-31
+- **Decision:** Implement the first dispute-enabled registry as a derived, non-upgradeable contract that inherits claim storage, withdrawal protection, and accounting helpers. Keep claim and dispute transitions in one contract and one liability ledger. A Phase 6 override may enable submission through `_submitClaim` and finalization through `_finalizeClaimAfterDisputeResolution` only after checking game state and the v1 state machine. Deploy a fresh instance; do not create a privileged external settlement engine.
+- **Reason:** A single state machine avoids trusted cross-contract settlement authority, duplicated liability totals, and synchronization risk. There is no live Phase 5 state to migrate.
+- **Consequences:** Phase 6 must maintain per-game replay/settlement guards, exact turn/deadline semantics, and claim-to-game accounting. Any ABI replay-fencing additions require review against the locked v1 spec before implementation. This ADR adds no VM, hashing, bisection, or bond-outcome semantic changes.
 
 ## Open release/operations decisions
 

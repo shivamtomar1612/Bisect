@@ -256,7 +256,7 @@ export const bisectClaimRegistryAbi = [
     name: "submitClaim",
     inputs: [
       {
-        name: "submission",
+        name: "",
         type: "tuple",
         internalType: "struct BisectClaimRegistry.ClaimSubmission",
         components: [
@@ -358,7 +358,7 @@ export const bisectClaimRegistryAbi = [
     ],
     outputs: [
       {
-        name: "claimId",
+        name: "",
         type: "uint256",
         internalType: "uint256",
       },
@@ -593,6 +593,11 @@ export const bisectClaimRegistryAbi = [
   },
   {
     type: "error",
+    name: "DisputeProtocolUnavailable",
+    inputs: [],
+  },
+  {
+    type: "error",
     name: "DuplicateClaim",
     inputs: [],
   },
@@ -611,6 +616,11 @@ export const bisectClaimRegistryAbi = [
         internalType: "uint256",
       },
     ],
+  },
+  {
+    type: "error",
+    name: "InvalidBondSettlement",
+    inputs: [],
   },
   {
     type: "error",
@@ -641,11 +651,6 @@ export const bisectClaimRegistryAbi = [
   {
     type: "error",
     name: "NoWithdrawableCredit",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ProgramExceedsMaximumSize",
     inputs: [],
   },
   {

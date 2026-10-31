@@ -1,52 +1,45 @@
-# Phase 5 verification — claim registry and pull escrow
+# Phase 5 verification — bonded claim escrow foundation
 
-**Result: PARTIAL, with the Phase 5 financial foundation implemented.** The registry validates v1 claim context and endpoint evidence, escrows the exact prover bond, finalizes an open claim after its challenge deadline, and exposes caller-only pull withdrawals. Financial operations have deterministic Foundry coverage. The interactive challenge game remains intentionally unimplemented.
+**Phase 5 result: PARTIAL. Phase 5.5 security gate: PASS for fail-closed behavior.** The contract source contains endpoint validation, exact-wei escrow accounting, and pull-withdrawal logic, but its public base entrypoints now reject claim submissions and finalization until an integrated dispute game exists. The Foundry-only harness is not a deployable protocol contract.
 
-## Implemented contract behavior
+## Contract behavior
 
-`contracts/src/BisectClaimRegistry.sol` is non-upgradeable and uses Solidity `0.8.30` with OpenZeppelin Contracts `5.5.0` `ReentrancyGuard`. Its constructor fixes `bondWei`, `challengeWindowBlocks`, and `turnWindowBlocks` using the ranges in `docs/dispute-state-machine.md`. The constructor rejects Base Mainnet chain ID `8453`; Base Sepolia `84532` and local Anvil are permitted. There is no deploy script or deployed address.
+`contracts/src/BisectClaimRegistry.sol` uses Solidity `0.8.30` and OpenZeppelin `5.5.0` `ReentrancyGuard`. The constructor fixes bond and block windows, rejects Base Mainnet chain ID `8453`, and has no admin or upgrade path. The public base `submitClaim` and `finalize` revert with `DisputeProtocolUnavailable`. Consequently, the base accepts no user bond and cannot mark an unchallenged trace final.
 
-`submitClaim(ClaimSubmission)` requires `msg.value == bondWei`, one of the four allowed budgets, a valid bounded VM v1 program, an initial proof at index 0 equal to the public input state, and a terminal proof at index N that is halted and binds `R0` to the claimed output. The verifier derives program, input, and context hashes; callers cannot supply version metadata or override the context. Successful claim IDs begin at 1 and increase monotonically. A repeated `(prover, contextHash, traceRoot, claimedOutput)` is rejected permanently.
+Internal `_submitClaim` validates the approved budget and VM v1 program, derives program/input/context hashes, authenticates the canonical initial proof and halted terminal proof/output, rejects duplicate proposals, stores the claim, and records the exact bond. Internal helpers maintain aggregate locked-bond/credit totals and support future game-authorized settlement. They do not decide a game outcome. `withdraw()` remains caller-only, full-credit, checks-effects-interactions, and protected by OpenZeppelin `ReentrancyGuard`.
 
-`finalize(claimId)` is permissionless only while a claim is open and only when `block.number > challengeDeadline`. It moves the exact locked prover bond into that prover's withdrawable credit without sending ETH. `withdraw()` can withdraw only the caller's full credit. State and aggregate liabilities are reduced before the call; failed sends revert the entire transaction, including state and logs. There is no fee, treasury, administrator, arbitrary-recipient payout, or database authority. Ordinary ETH transfers revert; forced ETH is surplus.
-
-The public accounting views enforce and expose the intended relationship:
+The invariant is:
 
 ```text
 totalLiabilities = totalLockedBonds + totalCredits
 address(this).balance >= totalLiabilities
 ```
 
-## Critical limitation and deployment status
+The test-only `BisectClaimRegistryHarness` exposes submission and an accounting seam for Foundry regression/invariant tests. Its settlement call does not prove or simulate a real dispute outcome. Do not deploy the harness.
 
-There is no challenge entrypoint or bisection game in this phase. The `GAME_ACTIVE` status is a guard for later integration and is exercised only by a test harness; no production call can currently enter that status. Consequently, endpoint checks do **not** prove intermediate transitions. After the deadline, a false intermediate trace can be finalized by this contract and its bond credited to the prover. The challenge-window duration currently delays finalization but does not provide a way to challenge.
+## Phase 5.5 security finding and correction
 
-Do not deploy or fund this contract as a live optimistic verification protocol. The full v1 dispute game, challenger bond accounting, retries, timeout settlements, terminal adjudication, and security review are required before that use. No Base Sepolia transaction, live gas result, or independent audit is claimed.
+The original Phase 5 public implementation accepted a prover bond after authenticating only trace endpoints and released it after a challenge window despite having no challenge entrypoint. An invalid intermediate trace could be finalized. A same-output trace could also contain a fraudulent intermediate state while retaining the honest final output.
 
-The separate Account Ledger addendum is still pending. This phase follows only the owner's current explicit scope and the existing locked dispute state machine; it adds no wallet custody, key storage, off-chain ledger, or database financial records. Test parameters (`1 ETH`, five challenge blocks, three turn blocks) are Foundry fixtures only, not recommended deployment economics. Zero fees are fixed in code for this implementation.
+Phase 5.5 disables both public entrypoints. A regression fixture generated from TypeScript modifies state index 1 of a trace whose program first writes `5` and later writes `42`. The altered trace's first transition is invalid, its root differs from the honest root, and its final halted state/output still equals the honest result (`42`). Foundry checks the expected first successor and confirms the base contract cannot accept the bond or finalize/credit this fraudulent claim.
 
-## Shared vectors and SDK
-
-`scripts/generate-phase5-claim-vectors.mts` executes the Phase 2 VM and Phase 3 Merkle package to generate `contracts/test/vectors/claim-registry-v1.json`. Foundry consumes the exact ABI state encodings, root, and proof siblings. The generated SDK ABI is derived from the Foundry artifact by `scripts/generate-claim-registry-abi.mjs`; typed viem reader/writer wrappers require caller-provided clients and address and do not store or create keys.
-
-The verifier library's state-proof function is now `internal` so the registry can reuse the locked ordered proof verifier. It still checks the exact allowed trace budget. No Phase 1–4 VM, Merkle, or transition semantics changed.
+No VM, Merkle, encoding, protocol-v1, or locked settlement semantics changed. No `challenge`, bisection, timeout, challenger bond, or game settlement implementation exists.
 
 ## Verification evidence
 
-The final `pnpm check:phase5` gate exited successfully. It ran:
+- `pnpm check:phase5` — passed after raising the timeout only for the existing maximum-budget VM test. It passed lint, formatting, all 7 applicable workspace typechecks, all 41 Vitest tests, VM/Merkle/SDK/Next.js builds, Solidity compilation, ABI generation, vector regeneration, and the complete Foundry suite.
+- Foundry — 26 tests across four suites passed: 16 claim-registry tests, 8 verifier tests including 256-run arithmetic and branch fuzz cases, one OpenZeppelin smoke test, and one accounting invariant test.
+- Accounting invariant — 256 runs and 128,000 handler calls; zero reverts, invariant failures, or discarded calls.
+- Targeted `BisectClaimRegistryTest` — 16 passed, including base deposit rejection and the same-output fraud regression.
+- TypeScript test suite — 41 passed across 5 files after the per-test timeout correction.
+- `forge fmt` — formatting applied to the changed Solidity files; final `forge fmt --check`, individual workspace checks, and Playwright outcome are recorded in `docs/phase-5-5-security-gate.md`.
 
-- Biome lint on 103 files: passed with 56 informational suggestions and no errors.
-- Biome formatting check: passed on 103 files.
-- Workspace TypeScript typechecking: all 7 applicable workspaces passed.
-- Vitest: 41 tests across 5 files passed.
-- VM, Merkle, SDK, and Next.js production builds: passed.
-- Foundry build: passed with pinned Solidity `0.8.30`; ABI regeneration and formatting passed.
-- Foundry: 22 tests across 4 suites passed, including 12 claim-registry cases, 8 existing VM/verifier cases, the OpenZeppelin smoke test, and the accounting invariant.
-- Accounting invariant: 256 runs and 128,000 handler calls; zero reverts, invariant failures, or discarded calls.
-- Existing verifier fuzz tests: 256 uint64 arithmetic cases and 256 signed-branch cases passed.
-- `pnpm e2e`: 1 Playwright Chromium test passed.
-- `forge fmt --check --root contracts`: passed.
+The invariant runner emits warnings while probing optional target-selector configuration methods; the explicit test handler ran all 128,000 calls successfully. No Base Sepolia deployment or live gas measurement is claimed.
 
-The Foundry invariant runner logs non-failing discovery warnings while probing optional target-selector configuration methods; it successfully targeted the explicit handler, completed all 128,000 calls, and passed the invariant. No check deployed to Base Sepolia or measured a live transaction.
+## Readiness and limitations
 
-Foundry financial tests cover exact/incorrect bond values, claim ID sequence and ownership, duplicate submissions, inclusive deadline boundaries, premature/repeated settlement, active-state guard, endpoint-context and input/output/budget/program failures, malformed/truncated proofs, caller-only credit, transfer failure rollback, reentrancy, and solvency. A stateful Foundry invariant test checks liability composition and solvency after handler calls.
+- **Phase 6 implementation: GO**, following [`phase-6-integration-contract.md`](phase-6-integration-contract.md) and [`phase-6-security-checklist.md`](phase-6-security-checklist.md).
+- **Deploy/fund the base registry: NO-GO.** Its public submit/finalize operations are intentionally unavailable.
+- The challenge game, retries, terminal adjudication, challenger escrow, and timeout settlements remain unimplemented and unaudited.
+- The Account Ledger addendum was not authored; ledger architecture, economic-policy, and invariant docs are absent. No wallet custody, database ledger, indexer-ledger reconciliation, or hosted key management is included.
+- Foundry's `1 ETH`, five-block challenge window, and three-block turn window are test fixtures only. They are not recommended deployment parameters.

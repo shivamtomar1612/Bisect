@@ -39,8 +39,46 @@ contract BisectClaimRegistryHarness is BisectClaimRegistry {
         BisectClaimRegistry(bond, challengeWindow, turnWindow)
     { }
 
+    /// @dev Test-only submission surface; production Phase 6 must implement its game entrypoint.
+    function submitClaim(ClaimSubmission calldata submission)
+        public
+        payable
+        override
+        returns (uint256 claimId)
+    {
+        return _submitClaim(submission);
+    }
+
     function markActiveForTest(uint256 claimId) external {
         _claims[claimId].status = ClaimStatus.GAME_ACTIVE;
+    }
+
+    /// @dev Accounting-only seam: this bypass is compiled only into the Foundry test artifact.
+    function finalizeForAccountingTest(uint256 claimId) external {
+        _finalizeClaimAfterDisputeResolution(claimId);
+    }
+
+    function stepForTest(bytes calldata program, BisectVerifier.State calldata predecessor)
+        external
+        pure
+        returns (BisectVerifier.TransitionError error, BisectVerifier.State memory successor)
+    {
+        BisectVerifier.State memory predecessorCopy = predecessor;
+        (, uint256 instructionCount) = BisectVerifier.validateProgram(program);
+        return BisectVerifier.step(program, predecessorCopy, instructionCount);
+    }
+
+    function verifyStateProofForTest(
+        bytes32 root,
+        bytes32 contextHash,
+        uint16 index,
+        BisectVerifier.State calldata state,
+        bytes32[] calldata siblings,
+        uint16 transitionCount
+    ) external pure returns (bool) {
+        return BisectVerifier.verifyStateProof(
+            root, contextHash, index, state, siblings, transitionCount
+        );
     }
 }
 
@@ -51,10 +89,10 @@ contract RejectingWithdrawalWallet {
 }
 
 contract ReentrantWithdrawalWallet {
-    BisectClaimRegistry private immutable registry;
+    BisectClaimRegistryHarness private immutable registry;
     bool public reentryWasBlocked;
 
-    constructor(BisectClaimRegistry registry_) {
+    constructor(BisectClaimRegistryHarness registry_) {
         registry = registry_;
     }
 
@@ -67,7 +105,7 @@ contract ReentrantWithdrawalWallet {
 contract BisectClaimRegistryHandler {
     VmClaimRegistryInvariant private constant vm =
         VmClaimRegistryInvariant(address(uint160(uint256(keccak256("hevm cheat code")))));
-    BisectClaimRegistry private immutable registry;
+    BisectClaimRegistryHarness private immutable registry;
     bytes private program;
     bytes private inputAbi;
     bytes32 private immutable root;
@@ -78,7 +116,7 @@ contract BisectClaimRegistryHandler {
     bool private submitted;
 
     constructor(
-        BisectClaimRegistry registry_,
+        BisectClaimRegistryHarness registry_,
         bytes memory program_,
         bytes memory inputAbi_,
         bytes32 root_,
@@ -123,7 +161,7 @@ contract BisectClaimRegistryHandler {
     }
 
     function finalize() external {
-        try registry.finalize(1) { } catch { }
+        try registry.finalizeForAccountingTest(1) { } catch { }
     }
 
     function withdraw() external {
@@ -168,6 +206,15 @@ contract BisectClaimRegistryTest {
         require(_submit() == 1, "first id must be one");
         require(registry.totalLockedBonds() == BOND, "exact bond locked");
         require(registry.accountingInvariantHolds(), "solvent after submission");
+    }
+
+    function testBaseRegistryCannotAcceptBondsWithoutDisputeProtocol() external {
+        BisectClaimRegistry baseRegistry = new BisectClaimRegistry(uint96(BOND), 5, 3);
+        vm.expectRevert(BisectClaimRegistry.DisputeProtocolUnavailable.selector);
+        baseRegistry.submitClaim{ value: BOND }(_submission());
+        require(baseRegistry.nextClaimId() == 1, "base registry creates no claim");
+        require(baseRegistry.totalLiabilities() == 0, "base registry takes no bond");
+        require(address(baseRegistry).balance == 0, "reverted bond is returned");
     }
 
     function testRejectsForgedEndpointProofAndDuplicateProposal() external {
@@ -237,6 +284,17 @@ contract BisectClaimRegistryTest {
         require(registry.getClaim(second).prover == secondProver, "second owner");
         require(registry.totalLockedBonds() == BOND * 2, "both bonds tracked");
         require(registry.totalLiabilities() == BOND * 2, "both liabilities tracked");
+
+        BisectClaimRegistry.Claim memory firstClaim = registry.getClaim(first);
+        vm.roll(firstClaim.challengeDeadline + 1);
+        registry.finalizeForAccountingTest(first);
+        require(
+            registry.withdrawableCredit(address(this)) == BOND, "first claim credits its prover"
+        );
+        require(registry.withdrawableCredit(secondProver) == 0, "second claim remains isolated");
+        require(registry.totalLockedBonds() == BOND, "second claim bond stays locked");
+        require(registry.totalCredits() == BOND, "only first claim became credit");
+        require(registry.accountingInvariantHolds(), "mixed liabilities remain solvent");
     }
 
     function testChallengeWindowIsInclusiveAndFinalizationRequiresNextBlock() external {
@@ -250,16 +308,89 @@ contract BisectClaimRegistryTest {
         );
         registry.finalize(claimId);
         vm.roll(claim.challengeDeadline + 1);
+        vm.expectRevert(BisectClaimRegistry.DisputeProtocolUnavailable.selector);
         registry.finalize(claimId);
-        require(registry.getClaim(claimId).status == BisectClaimRegistry.ClaimStatus.FINALIZED);
-        require(registry.withdrawableCredit(address(this)) == BOND, "credit equals exact bond");
-        require(registry.totalLockedBonds() == 0, "bond unlocked");
-        require(registry.totalCredits() == BOND, "credit liability recorded");
-        require(registry.totalLiabilities() == BOND, "total liabilities conserved");
-        require(registry.accountingInvariantHolds(), "solvent after finalization");
+        vm.expectRevert(BisectClaimRegistry.DisputeProtocolUnavailable.selector);
+        registry.finalize(claimId);
+        _assertClaimStillOpenAndLocked(claimId);
+    }
 
-        vm.expectRevert(abi.encodeWithSelector(BisectClaimRegistry.ClaimNotOpen.selector, claimId));
+    function testSameOutputFraudulentIntermediateTraceCannotFinalize() external {
+        BisectClaimRegistry.ClaimSubmission memory submission = _sameOutputFraudSubmission();
+        bytes32 honestRoot = vm.parseJsonBytes32(vectorJson, "$.sameOutputFraud.honestTraceRoot");
+        require(submission.traceRoot != honestRoot, "fraud root differs from honest root");
+        uint256 claimId = registry.submitClaim{ value: BOND }(submission);
+        BisectClaimRegistry.Claim memory claim = registry.getClaim(claimId);
+        require(
+            claim.status == BisectClaimRegistry.ClaimStatus.OPEN, "submission is not verification"
+        );
+        require(submission.claimedOutput == 42, "fraud claims the honest output");
+        require(registry.totalLockedBonds() == BOND, "prover bond is escrowed");
+
+        BisectVerifier.State memory predecessor = submission.initialProof.state;
+        (
+            BisectVerifier.TransitionError transitionError,
+            BisectVerifier.State memory expectedSuccessor
+        ) = registry.stepForTest(submission.program, predecessor);
+        require(transitionError == BisectVerifier.TransitionError.NONE, "valid transition executes");
+        require(expectedSuccessor.registers[0] == 5, "correct first transition writes five");
+        require(submission.claimedOutput == 42, "later instruction overwrites with same output");
+        BisectClaimRegistry.EndpointProof memory fraudulentIntermediate =
+            _proofAtPath("$.sameOutputFraud.intermediate");
+        require(
+            registry.verifyStateProofForTest(
+                submission.traceRoot,
+                claim.contextHash,
+                1,
+                fraudulentIntermediate.state,
+                fraudulentIntermediate.siblings,
+                submission.transitionCount
+            ),
+            "altered intermediate is authenticated by fraud root"
+        );
+        require(fraudulentIntermediate.state.pc == 1, "fraud state has expected index pc");
+        require(!fraudulentIntermediate.state.halted, "fraud state is not halted");
+        require(fraudulentIntermediate.state.registers[0] == 9, "fraud state writes nine");
+        require(
+            expectedSuccessor.registers[0] != fraudulentIntermediate.state.registers[0],
+            "authenticated intermediate is not the VM successor"
+        );
+
+        vm.roll(claim.challengeDeadline + 1);
+        vm.expectRevert(BisectClaimRegistry.DisputeProtocolUnavailable.selector);
         registry.finalize(claimId);
+
+        _assertClaimStillOpenAndLocked(claimId);
+        require(registry.withdrawableCredit(claim.prover) == 0, "fraudulent bond was not credited");
+    }
+
+    function testNoLockedBondCanBeWithdrawnBeforeSettlement() external {
+        _submit();
+        vm.expectRevert(BisectClaimRegistry.NoWithdrawableCredit.selector);
+        registry.withdraw();
+        require(registry.totalLockedBonds() == BOND, "prover bond remains escrowed");
+        require(registry.totalCredits() == 0, "locked bond is not withdrawable credit");
+    }
+
+    function testExternalCallerCannotSettleWithoutDisputeProtocol() external {
+        uint256 claimId = _submit();
+        BisectClaimRegistry.Claim memory claim = registry.getClaim(claimId);
+        vm.roll(claim.challengeDeadline + 1);
+
+        vm.expectRevert(BisectClaimRegistry.DisputeProtocolUnavailable.selector);
+        vm.prank(address(0xCAFE));
+        registry.finalize(claimId);
+
+        (bool success, bytes memory revertData) = address(registry)
+            .call(
+                abi.encodeWithSignature(
+                    "settleBond(uint256,address,uint256)", claimId, address(0xCAFE), BOND
+                )
+            );
+        require(!success, "registry exposes no arbitrary settlement method");
+        require(_errorSelector(revertData) == BisectClaimRegistry.UnexpectedEther.selector);
+        require(registry.withdrawableCredit(address(0xCAFE)) == 0, "no unauthorized credit");
+        require(registry.totalLockedBonds() == BOND, "bond remains locked");
     }
 
     function testFinalizationCannotProceedWithActiveGameStatus() external {
@@ -383,12 +514,38 @@ contract BisectClaimRegistryTest {
         submission.finalProof = finalProof;
     }
 
+    function _sameOutputFraudSubmission()
+        private
+        view
+        returns (BisectClaimRegistry.ClaimSubmission memory submission)
+    {
+        submission.program = vm.parseJsonBytes(vectorJson, "$.sameOutputFraud.program");
+        submission.publicInput = abi.decode(
+            vm.parseJsonBytes(vectorJson, "$.sameOutputFraud.publicInputAbiEncoded"), (uint64[8])
+        );
+        submission.transitionCount =
+            uint16(vm.parseJsonUint(vectorJson, "$.sameOutputFraud.transitionCount"));
+        submission.traceRoot = vm.parseJsonBytes32(vectorJson, "$.sameOutputFraud.traceRoot");
+        submission.claimedOutput =
+            uint64(vm.parseJsonUint(vectorJson, "$.sameOutputFraud.claimedOutput"));
+        submission.initialProof = _proofAtPath("$.sameOutputFraud.initial");
+        submission.finalProof = _proofAtPath("$.sameOutputFraud.terminal");
+    }
+
     function _proof(string memory endpoint)
         private
         view
         returns (BisectClaimRegistry.EndpointProof memory proof)
     {
         string memory base = string.concat("$.", endpoint);
+        return _proofAtPath(base);
+    }
+
+    function _proofAtPath(string memory base)
+        private
+        view
+        returns (BisectClaimRegistry.EndpointProof memory proof)
+    {
         bytes memory encoded =
             vm.parseJsonBytes(vectorJson, string.concat(base, ".stateAbiEncoded"));
         (proof.state.pc, proof.state.halted, proof.state.registers) =
@@ -400,7 +557,17 @@ contract BisectClaimRegistryTest {
     function _finalize(uint256 claimId) private {
         BisectClaimRegistry.Claim memory claim = registry.getClaim(claimId);
         vm.roll(claim.challengeDeadline + 1);
-        registry.finalize(claimId);
+        registry.finalizeForAccountingTest(claimId);
+    }
+
+    function _assertClaimStillOpenAndLocked(uint256 claimId) private view {
+        BisectClaimRegistry.Claim memory claim = registry.getClaim(claimId);
+        require(claim.status == BisectClaimRegistry.ClaimStatus.OPEN, "claim remains unverified");
+        require(claim.proposerBondLocked, "prover bond is still locked");
+        require(registry.totalLockedBonds() == BOND, "locked total is unchanged");
+        require(registry.totalCredits() == 0, "no unsupported credit exists");
+        require(registry.totalLiabilities() == BOND, "liabilities are unchanged");
+        require(registry.accountingInvariantHolds(), "liabilities remain solvent");
     }
 
     function _errorSelector(bytes memory revertData) private pure returns (bytes4 selector) {
@@ -414,7 +581,7 @@ contract BisectClaimRegistryTest {
 contract BisectClaimRegistryInvariantTest {
     VmClaimRegistry private constant vm =
         VmClaimRegistry(address(uint160(uint256(keccak256("hevm cheat code")))));
-    BisectClaimRegistry private registry;
+    BisectClaimRegistryHarness private registry;
     address private handlerTarget;
 
     function setUp() external {
@@ -427,7 +594,7 @@ contract BisectClaimRegistryInvariantTest {
         BisectClaimRegistry.EndpointProof memory finalProof = _decodeProof(
             finalBytes, vm.parseJsonBytes32Array(json, "$.terminal.siblingsBottomUp")
         );
-        registry = new BisectClaimRegistry(1 ether, 5, 3);
+        registry = new BisectClaimRegistryHarness(1 ether, 5, 3);
         BisectClaimRegistryHandler handler = new BisectClaimRegistryHandler(
             registry,
             vm.parseJsonBytes(json, "$.program"),

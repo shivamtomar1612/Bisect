@@ -1,17 +1,17 @@
 # BISECT v1 security model
 
-**Status: specification and partial implementation; unaudited.** The Phase 5 registry implements prover-bond escrow, endpoint proof checks, delayed finalization, and pull withdrawals. It does not implement a challenge entrypoint or the dispute game. Therefore this implementation cannot enforce the protocol's optimistic challenge guarantee, and endpoint proofs alone do not make a trace correct.
+**Status: specification and partial implementation; unaudited.** The Phase 5 base retains claim validation, escrow/accounting, and pull-withdrawal code, but its public claim and finalization entrypoints revert while the dispute game is absent. A test-only derived harness exercises internal logic; it is not a production contract. Endpoint proofs alone do not make a trace correct.
 
 ## 1. Protected properties
 
-Under the assumptions below, v1 aims to ensure:
+Under the assumptions below, a complete implementation of the locked v1 protocol aims to ensure. The current Phase 5 base accepts no claims and provides none of these on-chain guarantees yet:
 
 - A finalized proposal has a unique program/input/VM/budget context and an authenticated initial and final state; its final output equals final `R[0]`.
 - If the committed proposer trace contains an invalid transition, an honest challenger with the correct trace can refute it if the challenge and all required responses are included before their respective deadlines.
 - A valid proposer is not slashable by a challenger merely for supplying an arbitrary conflicting root; the prover wins if its isolated successor matches the unique VM v1 transition.
 - Locked bonds are not paid twice and cannot be withdrawn by a third party. Withdrawals are pull-based and nonreentrant.
 
-Finalization without a successful challenge is not a proof that every transition was valid. It is acceptance under an optimistic monitoring/challenge assumption.
+Even in a completed v1 implementation, finalization without a successful challenge is not a proof that every transition was valid. It is acceptance under an optimistic monitoring/challenge assumption.
 
 ## 2. Cryptographic assumptions
 
@@ -66,6 +66,6 @@ The protocol is a research specification. It is not an audit, legal/economic rev
 
 ## 8. Phase 5 contract limitation
 
-`BisectClaimRegistry` accepts the exact prover bond and verifies the initial and terminal states against the committed trace. It intentionally has no `challenge` call in this phase. Once the immutable challenge window has elapsed, anyone can finalize an open claim and credit its prover. A malformed intermediate trace can therefore be finalized by this contract. The `GAME_ACTIVE` finalization guard is reserved for the later dispute integration and is exercised only through a test harness today. Do not deploy or fund this registry as a live optimistic verification service until the complete v1 game, challenger path, and game-bond settlements are implemented, independently reviewed, and tested.
+`BisectClaimRegistry` has no `challenge` call or bisection game. The initial Phase 5 implementation accepted bonds and finalized after the challenge window using only endpoint proofs; that allowed an invalid intermediate trace, including a fraud trace with the honest final output, to be finalized. Phase 5.5 corrected this by making both public `submitClaim` and `finalize` revert in the base contract. Internal validation/accounting helpers remain for a future dispute-enabled derived contract, while tests use an explicitly test-only harness. Do not deploy or fund the base registry as a claim service. Phase 6 must implement and test the complete v1 game and settlements in a fresh deployment before any claim admission is enabled.
 
 The implementation's current zero-fee policy and bond/window values are deployment immutables. Foundry tests use a `1 ETH` bond, a five-block challenge window, and a three-block turn window solely as deterministic fixtures; they are not recommended Base Sepolia economics. The separate Account Ledger addendum remains pending and is not silently inferred by this contract.

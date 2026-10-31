@@ -1,10 +1,38 @@
 # Development progress
 
-## 2026-10-31 — Phase 5 bonded claim registry and pull escrow
+## 2026-10-31 — Phase 5.5 pre-dispute security gate and Phase 6 design
 
 ### Completed
 
-- Added `contracts/src/BisectClaimRegistry.sol`: immutable v1 claim registry settings, exact prover bond submission, full v1 program and execution-context validation, authenticated canonical initial and halted terminal state proofs, stable sequential IDs, duplicate proposal suppression, block deadlines, unchallenged finalization into pull credit, and caller-only withdrawals guarded by OpenZeppelin `ReentrancyGuard`.
+- Audited the actual Phase 5 contract and found that endpoint-only claims could be finalized without an implemented challenge path. Disabled public claim admission and finalization in the base registry; a revert prevents both false claim finality and deposits that would otherwise have no production settlement path.
+- Retained the checked claim-validation and exact-wei accounting flow as internal helpers for an integrated derived contract. The Foundry-only harness exposes those internals for tests; it is not a production settlement path.
+- Added a TypeScript-generated same-output fraud vector: an intermediate state is invalid, the trace root differs, and the final halted output remains the honest value. Added Solidity regression coverage and a base-contract deposit-rejection test.
+- Added `docs/phase-5-5-security-gate.md`, `docs/phase-6-integration-contract.md`, and `docs/phase-6-security-checklist.md`; corrected status claims in README, architecture, requirements, security model, Phase 5 report, and this progress log.
+- Fixed duplicate decision numbering and recorded the fail-closed base and single-contract Phase 6 integration decisions. No VM/Merkle semantics or Phase 6 game code changed.
+- Confirmed the Account Ledger addendum and its architecture, policy, and invariant documents remain absent. No ledger behavior was inferred or implemented.
+
+### Verification
+
+- `pnpm claims:vectors` — passed; regenerated the honest endpoint vectors plus same-output fraud fixture using the TypeScript VM/Merkle packages.
+- Targeted `BisectClaimRegistryTest` — 16 passed, including exact bond/accounting coverage, base registry deposit rejection, and the same-output fraud case.
+- `pnpm check:phase5` — final run passed: lint, formatting, 7 workspace typechecks, 41 Vitest tests, VM/Merkle/SDK/Next.js builds, Foundry build/ABI generation, vector regeneration, and 26 Foundry tests across four suites.
+- Foundry invariant — 256 runs, 128,000 handler calls, no reverts or invariant failures.
+- The initial aggregate run exposed an existing maximum-budget VM test exceeding Vitest's 5-second default on this Windows environment. Raised only that test's timeout to 15 seconds; standalone and aggregate test runs then passed. No VM execution logic changed.
+- Standalone `pnpm lint` — passed on 106 files with 56 informational suggestions and no errors; `pnpm format:check` — passed on 106 files; `pnpm typecheck` — 7 workspace packages passed; `pnpm test` — 41 passed; `pnpm build` — VM/Merkle/SDK/Next production builds passed.
+- `pnpm e2e` — 1 Playwright Chromium test passed. `forge fmt --check --root contracts` — passed. Targeted registry tests — 16 passed.
+
+### Readiness
+
+- **Phase 5.5 gate: PASS** for fail-closed base behavior and documented Phase 6 integration requirements.
+- **Phase 6 implementation: GO** within the three Phase 6 documents and locked `docs/dispute-state-machine.md`.
+- **Deployment/funding: NO-GO.** The base registry cannot accept claims, and no integrated game is implemented. No testnet deployment, live gas claim, or independent audit is claimed.
+- The Account Ledger, wallet custody, database financial journal, dispute game, and challenger service remain separate future work.
+
+## 2026-10-31 — Phase 5 bonded claim registry and pull escrow (initial implementation; superseded by Phase 5.5 gate)
+
+### Completed
+
+- Initially added `contracts/src/BisectClaimRegistry.sol` with immutable settings, exact prover bond submission, full v1 program/context validation, authenticated initial/terminal proofs, sequential IDs, duplicate prevention, block deadlines, pull credits, and caller-only withdrawals guarded by OpenZeppelin `ReentrancyGuard`. The later Phase 5.5 gate disabled public claim submission and finalization until the dispute game exists.
 - Added exact liability accounting (`totalLockedBonds`, `totalCredits`, `totalLiabilities`) with a solvency view. Fees are zero, plain ETH transfers revert, forced ETH is not credited, and there is no administrator withdrawal path.
 - Reused the locked ordered Merkle verifier through an internal state-proof API. No VM, trace encoding, or dispute semantics changed. Added the Foundry-generated `@bisect/sdk` ABI and typed viem reader/writer wrappers; SDK callers provide their own clients and keys.
 - Generated Solidity endpoint proof fixtures by executing the TypeScript VM/Merkle packages. Added adversarial financial tests and a stateful accounting invariant test.
@@ -20,7 +48,7 @@
 
 ### Limits and readiness
 
-- This contract has no public challenge entrypoint or bisection game. The `GAME_ACTIVE` finalization guard is only reachable in the test harness. Endpoint membership does not prove every transition, so false intermediate traces can currently be finalized. Do not deploy or fund this contract as a live optimistic-verification service.
+- At original Phase 5 close, the contract had no public challenge entrypoint or bisection game, and endpoint membership did not prove every transition. Phase 5.5 found and closed the unsafe finalization path and disabled base submissions as well. Do not deploy or fund the base contract as a live optimistic-verification service.
 - No challenge bonds, retries, timeout outcomes, game settlement, wallet UI, Account Ledger addendum, deployment, live gas measurement, or independent audit were added. Foundry bond/window values are test fixtures, not public-network parameters.
 - **Phase 5 scoped financial foundation: implemented. Full protocol readiness: PARTIAL.**
 

@@ -2,7 +2,7 @@
 
 BISECT is an early-stage optimistic computation verification protocol. A prover will commit to a bounded deterministic execution trace and bond funds; a challenger will be able to dispute a conflicting trace through an interactive bisection game.
 
-**Status: VM v1, ordered Merkle commitments, off-chain trace SDK, Solidity one-step verifier, and a limited bonded claim registry are implemented.** The registry validates authenticated initial/final states, locks the exact bond, allows unchallenged finalization to a pull credit, and supports caller-only withdrawals. It has no challenge entrypoint or dispute game: endpoint checks do not establish every transition, so this build must not be deployed as a secure optimistic-verification service. No testnet deployment or independent audit is claimed.
+**Status: VM v1, ordered Merkle commitments, off-chain trace SDK, and Solidity one-step verifier are implemented.** Phase 5 escrow/accounting internals and pull-withdrawal code exist, but the base claim registry rejects submissions and finalization because no dispute game exists. A test-only harness covers the shared accounting paths; it does not represent production settlement. Do not deploy or fund the base registry. No testnet deployment or independent audit is claimed.
 
 ## Repository layout
 
@@ -73,7 +73,7 @@ Contract checks require Foundry. Database checks require the local PostgreSQL se
 
 ## Protocol status and assumptions
 
-**BISECT protocol v1 is specified and locked.** The VM, off-chain canonical commitments, Merkle proofs, Solidity one-step verifier, bonded registry, and pull-withdrawal layer are implemented and tested against TypeScript-generated vectors. The interactive game, challenger, indexer, wallet UI, testnet deployment, and independent audit remain future work. The separately named Account Ledger addendum is still pending; Phase 5 implements only the on-chain native-ETH bond balances authorized in the task, without custody or a database ledger. Read [docs/phase-5-verification-report.md](docs/phase-5-verification-report.md) for the exact limitations and deployment warning.
+**BISECT protocol v1 is specified and locked.** The VM, off-chain canonical commitments, Merkle proofs, and Solidity one-step verifier are implemented and tested against TypeScript-generated vectors. Claim admission and finalization remain disabled in the base registry until Phase 6 integrates the dispute game. The challenger, indexer, wallet UI, testnet deployment, and independent audit remain future work. The separately named Account Ledger addendum is still pending; there is no wallet custody or database ledger. Read [docs/phase-5-5-security-gate.md](docs/phase-5-5-security-gate.md) for the current gate.
 
 The architecture overview is in [docs/architecture.md](docs/architecture.md), engineering decisions in [docs/decisions.md](docs/decisions.md), requirements and evidence in [docs/requirements.md](docs/requirements.md), and verified progress in [docs/progress.md](docs/progress.md).
 
