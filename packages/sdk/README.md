@@ -28,4 +28,4 @@ const valid = verifyExecutionStateProof({
 
 The public API also includes direct root generation, state commitment, full trace export/import, and proof import/export. Uint64 values are decimal strings in JSON artifacts. The v1 tree is ordered, position-sensitive, and unpadded; permitted traces have 64, 256, 1024, or 4096 leaves.
 
-An inclusion proof proves membership in a caller-supplied root only. It does not prove that every transition is valid, that a claim is honest, or that an on-chain verifier exists. No deployed ABI, address, wallet custody, transaction helper, escrow, or ledger functionality is implemented.
+An inclusion proof proves membership in a caller-supplied root only. It does not prove that every transition is valid or that a claim is honest. The SDK exports a Foundry-generated `bisectClaimRegistryAbi` and typed viem reader/writer wrappers (`getBisectClaimRegistryReader` and `getBisectClaimRegistryWriter`). The caller must supply a real address and its own viem clients; the SDK stores no key and does not invent a deployment. The current contract has no challenge-game API, and no transaction is simulated.

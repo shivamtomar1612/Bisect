@@ -1,6 +1,6 @@
 # BISECT v1 security model
 
-**Status: specification only; unaudited.** This document records what the v1 protocol assumes and what it guarantees conditionally. It does not claim that any contract implementation exists, is secure, or is deployed.
+**Status: specification and partial implementation; unaudited.** The Phase 5 registry implements prover-bond escrow, endpoint proof checks, delayed finalization, and pull withdrawals. It does not implement a challenge entrypoint or the dispute game. Therefore this implementation cannot enforce the protocol's optimistic challenge guarantee, and endpoint proofs alone do not make a trace correct.
 
 ## 1. Protected properties
 
@@ -63,3 +63,9 @@ Prover/challenger wallets must protect their signing keys. Challenger automation
 V1 does not prevent censorship, chain reorganizations, Sybil identities, false claims that go unchallenged, unavailable off-chain data, frontend deception, validator bugs, or economic griefing beyond the explicit bond rules. It does not provide confidentiality (program/input and claims are public), privacy, a validity proof, execution billing, resource fairness, an insurance pool, or protection against a majority/consensus failure of the target chain.
 
 The protocol is a research specification. It is not an audit, legal/economic review, production deployment, or recommendation to risk funds. Testnet success would not establish production security.
+
+## 8. Phase 5 contract limitation
+
+`BisectClaimRegistry` accepts the exact prover bond and verifies the initial and terminal states against the committed trace. It intentionally has no `challenge` call in this phase. Once the immutable challenge window has elapsed, anyone can finalize an open claim and credit its prover. A malformed intermediate trace can therefore be finalized by this contract. The `GAME_ACTIVE` finalization guard is reserved for the later dispute integration and is exercised only through a test harness today. Do not deploy or fund this registry as a live optimistic verification service until the complete v1 game, challenger path, and game-bond settlements are implemented, independently reviewed, and tested.
+
+The implementation's current zero-fee policy and bond/window values are deployment immutables. Foundry tests use a `1 ETH` bond, a five-block challenge window, and a three-block turn window solely as deterministic fixtures; they are not recommended Base Sepolia economics. The separate Account Ledger addendum remains pending and is not silently inferred by this contract.

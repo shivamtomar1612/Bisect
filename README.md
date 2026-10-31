@@ -2,7 +2,7 @@
 
 BISECT is an early-stage optimistic computation verification protocol. A prover will commit to a bounded deterministic execution trace and bond funds; a challenger will be able to dispute a conflicting trace through an interactive bisection game.
 
-**Status: VM v1, ordered Merkle commitments, off-chain trace SDK, and Solidity one-step verifier implemented.** Solidity and TypeScript encodings, execution steps, and ordered state proofs match the checked-in shared vectors. The claim/game contract, indexer, challenger service, wallet transactions, and testnet deployment are not implemented. The verifier is unaudited. No transaction or dispute outcome is simulated.
+**Status: VM v1, ordered Merkle commitments, off-chain trace SDK, Solidity one-step verifier, and a limited bonded claim registry are implemented.** The registry validates authenticated initial/final states, locks the exact bond, allows unchallenged finalization to a pull credit, and supports caller-only withdrawals. It has no challenge entrypoint or dispute game: endpoint checks do not establish every transition, so this build must not be deployed as a secure optimistic-verification service. No testnet deployment or independent audit is claimed.
 
 ## Repository layout
 
@@ -12,8 +12,8 @@ apps/indexer      Chain event indexing service (planned)
 apps/challenger   Dispute automation service (planned)
 packages/vm       Bounded deterministic VM, v1 encodings and CLI
 packages/merkle   Ordered v1 trace roots, state commitments, and proofs
-packages/sdk      Typed off-chain trace/proof SDK; no contract client yet
-contracts         Foundry and Solidity project
+packages/sdk      Typed trace/proof SDK and generated registry ABI/client wrappers
+contracts         Foundry verifier and bonded claim registry
 docs              Architecture, requirements, decisions, and progress
 scripts           Repository maintenance scripts
 tests/e2e         Browser-level tests
@@ -64,6 +64,7 @@ pnpm contracts:build
 pnpm contracts:test
 pnpm contracts:vectors
 pnpm check:phase4
+pnpm check:phase5
 pnpm e2e
 pnpm check:all
 ```
@@ -72,7 +73,7 @@ Contract checks require Foundry. Database checks require the local PostgreSQL se
 
 ## Protocol status and assumptions
 
-**BISECT protocol v1 is specified and locked.** The VM, off-chain canonical commitments, Merkle proofs, typed trace SDK, and stateless Solidity one-step verifier are implemented and cross-checked against shared TypeScript-generated vectors. Claim/game adjudication, financial contract integration, wallet transactions, testnet deployment, and independent audit remain future work. The Account Ledger addendum is pending and no new custody, escrow, bond settlement, withdrawal, or database-ledger feature is part of this phase. Start with [docs/protocol-v1.md](docs/protocol-v1.md), then read the normative [VM specification](docs/vm-spec.md), [encoding specification](docs/encoding-spec.md), [dispute state machine](docs/dispute-state-machine.md), [security model](docs/security-model.md), and [protocol vectors](docs/protocol-vectors.json). Changes to consensus-visible semantics require versioning and new vectors.
+**BISECT protocol v1 is specified and locked.** The VM, off-chain canonical commitments, Merkle proofs, Solidity one-step verifier, bonded registry, and pull-withdrawal layer are implemented and tested against TypeScript-generated vectors. The interactive game, challenger, indexer, wallet UI, testnet deployment, and independent audit remain future work. The separately named Account Ledger addendum is still pending; Phase 5 implements only the on-chain native-ETH bond balances authorized in the task, without custody or a database ledger. Read [docs/phase-5-verification-report.md](docs/phase-5-verification-report.md) for the exact limitations and deployment warning.
 
 The architecture overview is in [docs/architecture.md](docs/architecture.md), engineering decisions in [docs/decisions.md](docs/decisions.md), requirements and evidence in [docs/requirements.md](docs/requirements.md), and verified progress in [docs/progress.md](docs/progress.md).
 

@@ -202,7 +202,7 @@ library BisectVerifier {
         uint16 nextIndex = proof.stateIndex + 1;
 
         if (
-            !_verifyStateProof(
+            !verifyStateProof(
                     proof.traceRoot,
                     contextHash,
                     proof.stateIndex,
@@ -210,7 +210,7 @@ library BisectVerifier {
                     proof.predecessorSiblings,
                     proof.transitionCount
                 )
-                || !_verifyStateProof(
+                || !verifyStateProof(
                     proof.traceRoot,
                     contextHash,
                     nextIndex,
@@ -288,14 +288,15 @@ library BisectVerifier {
         return keccak256(abi.encode(D_NODE, left, right));
     }
 
-    function _verifyStateProof(
+    function verifyStateProof(
         bytes32 traceRoot,
         bytes32 contextHash,
         uint16 index,
         State calldata state,
         bytes32[] calldata siblings,
         uint16 transitionCount
-    ) private pure returns (bool) {
+    ) internal pure returns (bool) {
+        if (!_isAllowedBudget(transitionCount)) return false;
         uint256 expectedDepth = _proofDepth(transitionCount);
         if (siblings.length != expectedDepth || index > transitionCount) return false;
 

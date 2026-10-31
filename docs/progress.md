@@ -1,5 +1,29 @@
 # Development progress
 
+## 2026-10-31 — Phase 5 bonded claim registry and pull escrow
+
+### Completed
+
+- Added `contracts/src/BisectClaimRegistry.sol`: immutable v1 claim registry settings, exact prover bond submission, full v1 program and execution-context validation, authenticated canonical initial and halted terminal state proofs, stable sequential IDs, duplicate proposal suppression, block deadlines, unchallenged finalization into pull credit, and caller-only withdrawals guarded by OpenZeppelin `ReentrancyGuard`.
+- Added exact liability accounting (`totalLockedBonds`, `totalCredits`, `totalLiabilities`) with a solvency view. Fees are zero, plain ETH transfers revert, forced ETH is not credited, and there is no administrator withdrawal path.
+- Reused the locked ordered Merkle verifier through an internal state-proof API. No VM, trace encoding, or dispute semantics changed. Added the Foundry-generated `@bisect/sdk` ABI and typed viem reader/writer wrappers; SDK callers provide their own clients and keys.
+- Generated Solidity endpoint proof fixtures by executing the TypeScript VM/Merkle packages. Added adversarial financial tests and a stateful accounting invariant test.
+- Updated requirements, architecture, README, decisions, and `docs/phase-5-verification-report.md`.
+
+### Verification
+
+- `pnpm check:phase5` — passed. Biome lint checked 103 files with 56 informational suggestions and no errors; formatting checked 103 files; all 7 workspace typechecks passed; Vitest passed 41 tests across 5 files; VM/Merkle/SDK/Next.js production builds passed; Foundry compilation and ABI generation passed; and Foundry passed all 22 tests across 4 suites.
+- The Foundry accounting invariant passed 256 runs and 128,000 handler calls with zero reverts or invariant failures. Existing verifier fuzz tests each ran 256 arithmetic/branch cases.
+- `pnpm e2e` — passed: 1 Playwright Chromium test.
+- `forge fmt --check --root contracts` — passed.
+- Foundry invariant testing emits non-failing warnings while probing optional target-selector configuration methods; the explicit handler target was exercised successfully for all 128,000 calls.
+
+### Limits and readiness
+
+- This contract has no public challenge entrypoint or bisection game. The `GAME_ACTIVE` finalization guard is only reachable in the test harness. Endpoint membership does not prove every transition, so false intermediate traces can currently be finalized. Do not deploy or fund this contract as a live optimistic-verification service.
+- No challenge bonds, retries, timeout outcomes, game settlement, wallet UI, Account Ledger addendum, deployment, live gas measurement, or independent audit were added. Foundry bond/window values are test fixtures, not public-network parameters.
+- **Phase 5 scoped financial foundation: implemented. Full protocol readiness: PARTIAL.**
+
 ## 2026-10-31 — Phase 4 Solidity verifier and cross-language consistency
 
 ### Completed

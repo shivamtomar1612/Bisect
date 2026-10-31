@@ -1,6 +1,6 @@
 # BISECT architecture
 
-**Protocol status:** v1 semantics are specified and locked in `protocol-v1.md`. VM execution, ordered trace roots/proofs, typed off-chain SDK APIs, and the Solidity one-step/Merkle verifier are implemented. Cross-language encoding and transition vectors pass; this does not establish the correctness of the future game/accounting integration, deployment, or audit coverage. Changes to locked semantics require explicit versioning as described in `docs/decisions.md`.
+**Protocol status:** v1 semantics are specified and locked in `protocol-v1.md`. VM execution, ordered trace roots/proofs, typed off-chain SDK APIs, the Solidity one-step verifier, and the limited claim escrow are implemented. The escrow authenticates endpoints, holds the exact prover bond, finalizes after the challenge window, and offers caller-only pull withdrawals. It has no challenge entrypoint or game, so its finalized claims have not been proven correct at every step. Do not deploy it as a secure optimistic-verification service. Changes to locked semantics require explicit versioning as described in `docs/decisions.md`.
 
 ## System boundary
 
@@ -16,7 +16,7 @@ Challenger wallet ─ challenge/game ──┘              ├─ public claim/
                                       (derived, not authoritative)
 ```
 
-The off-chain TypeScript implementation executes only the finite register-machine ISA in `vm-spec.md`. The Solidity verifier validates the bounded program encoding and claim endpoints, manages claim/game deadlines and bonds, and verifies authenticated states plus one VM transition. A client, indexer, or database cannot override contract state.
+The off-chain TypeScript implementation executes only the finite register-machine ISA in `vm-spec.md`. The Solidity verifier validates bounded programs and one-step transitions. The Phase 5 registry authenticates claim endpoints, records deadlines, and accounts for prover bonds and withdrawal credits. It does not yet admit challenges or manage dispute-game outcomes. A client, indexer, or database cannot override contract state.
 
 ## Locked execution model
 
@@ -32,14 +32,15 @@ Each bisection level compares both parties' ordered child hashes and descends le
 
 ## On-chain accounting
 
-The immutable verifier uses exact native-ETH wei amounts. It has no fee, treasury, admin withdrawal, upgrade path, or cancel path. Locked deposits transition to pull-payment credits under explicit settlement rules. `totalLiabilities` equals all locked bonds plus all credits and must never exceed contract balance. Withdrawal is caller-only, checks-effects-interactions, and protected with OpenZeppelin `ReentrancyGuard`. Forced ETH is surplus, not user credit.
+The immutable registry uses exact native-ETH wei amounts, no fee or treasury, and no admin withdrawal, upgrade, or cancel path. A locked prover deposit can only transition to a pull credit through unchallenged finalization in the current implementation. `totalLiabilities` equals locked bonds plus credits and must not exceed contract balance. Withdrawal is caller-only, checks-effects-interactions, and protected with OpenZeppelin `ReentrancyGuard`. Forced ETH is surplus, not user credit. Challenge bond accounting and game settlement remain unimplemented.
 
 ## Services
 
 - **VM package:** bounded VM v1 execution, canonical ABI/Keccak encodings, fixed-length trace generation, and CLI are implemented and tested against TypeScript vectors.
 - **Merkle package:** ordered, position-sensitive v1 roots and bottom-up inclusion proofs are implemented. The package reuses the VM's locked ABI/hash functions, independently builds the tree, and compares its root with the VM result.
-- **SDK:** typed trace creation, state commitments, proof creation/verification, and JSON-safe trace/proof import/export are implemented. Wallet actions and deployed contract calls remain planned.
-- **Solidity verifier library:** bounded v1 program validation, one-step execution, domain-separated canonical hashing, and two adjacent ordered inclusion proofs are implemented and checked against TypeScript-generated vectors. The claim/game contract that integrates it with deadlines and credits remains specified, not implemented/deployed.
+- **SDK:** typed trace creation, state commitments, proof creation/verification, JSON-safe trace/proof import/export, generated claim-registry ABI, and viem reader/writer wrappers are implemented. No deployed address or wallet custody is bundled.
+- **Solidity claim registry:** endpoint-authenticated claim submission, exact-bond escrow, immutable windows, duplicate prevention, unchallenged finalization, accounting views, and pull withdrawals are implemented and covered by Foundry adversarial/invariant tests. The challenge/game contract is not implemented.
+- **Solidity verifier library:** bounded v1 program validation, one-step execution, domain-separated canonical hashing, and ordered inclusion proofs are implemented and checked against TypeScript-generated vectors.
 - **Challenger:** independently recomputes traces, watches claims, and answers games with an isolated signer. Planned; availability and key custody are operator responsibilities.
 - **Indexer:** consumes public events and handles reorgs; data is derived and rebuildable. It is not a correctness authority.
 - **Web application:** will show actual wallet/RPC states and contract events; it must not fabricate transactions, gas, proofs, or dispute results.
@@ -51,4 +52,4 @@ The protocol assumes Keccak-256 collision resistance, correct EVM/Solidity seman
 
 Base Sepolia (chain ID `84532`) is the initial testnet target; local Anvil is the development chain. Local and public chain configuration are kept distinct. No contract address, deployment, audit, or production readiness is claimed.
 
-The Account Ledger addendum has not been authored yet. No wallet custody, escrow, bond settlement, withdrawal, or database ledger behavior is implemented under the current locked scope.
+The standalone Account Ledger addendum has not been authored yet. Phase 5's on-chain financial scope is limited to native-ETH protocol bonds and pull credits defined by the current task and `dispute-state-machine.md`; no wallet custody or database ledger exists.

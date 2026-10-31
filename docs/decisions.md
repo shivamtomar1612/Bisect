@@ -58,6 +58,13 @@ Material protocol choices below are accepted and locked for v1. Implementations 
 - **Reason:** Reuse locked consensus encodings while independently testing tree construction; prevent sorted-pair behavior from changing proof semantics.
 - **Consequences:** OpenZeppelin Contracts v5.5.0 `MerkleProof` is not used because its standard proof path uses commutative sorted-pair hashing and does not support the required position-sensitive hash. TypeScript vectors are the compatibility fixture for a future Solidity implementation. The Account Ledger addendum is pending; no custody, escrow, settlement, withdrawal, or database-ledger semantics are introduced.
 
+## ADR-0009: Phase 5 native-ETH claim escrow boundary
+
+- **Status:** Accepted for Phase 5 implementation, 2026-10-31
+- **Decision:** Implement a non-upgradeable claim registry with monotonic IDs, an exact immutable prover bond, canonical initial/final trace proof checks, duplicate-submission prevention per prover/context/root/output, a fixed block challenge deadline, unchallenged finalization to a caller-only pull credit, and a checks-effects-interactions withdrawal guarded by OpenZeppelin `ReentrancyGuard`. Fees are zero. No administrator can move funds. Reject ordinary ETH transfers; forced ETH remains unallocated surplus. The Base mainnet chain ID is rejected by the constructor; Anvil and Base Sepolia remain allowed.
+- **Reason:** Establish the first real bond/accounting layer while keeping keys in external wallets and implementing only the financial behaviors explicitly authorized for this phase.
+- **Consequences:** The current registry has no challenge entrypoint or dispute resolution. Its endpoint evidence does not establish intermediate execution correctness; its finalization path is unsafe for optimistic claims until the Phase 6 game is integrated. Foundry economic parameters are test fixtures only. The Account Ledger addendum remains pending, and no wallet custody or database accounting is introduced.
+
 ## ADR-0009: Stateless Solidity v1 transition verifier
 
 - **Status:** Accepted, 2026-10-31
