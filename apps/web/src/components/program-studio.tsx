@@ -38,6 +38,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ClaimTransaction } from "./claim-transaction";
 import {
   buildPhase5ClaimSubmission,
   createDishonestTraceScenario,
@@ -603,6 +604,7 @@ export function ProgramStudio() {
                     separate <code>msg.value</code> set by the deployment.
                   </p>
                   <code className="studio-calldata">{phase5ClaimCalldata(claimSubmission)}</code>
+                  <ClaimTransaction submission={claimSubmission} />
                   <button
                     className="button studio-download-claim"
                     type="button"
@@ -613,7 +615,8 @@ export function ProgramStudio() {
                     Export unsigned claim payload
                   </button>
                   <span className="small muted">
-                    Calldata prepared only. No wallet was opened and no transaction was sent.
+                    Preparing or exporting this payload does not submit a transaction. The bonded
+                    claim action above requires separate wallet approval and a confirmed receipt.
                   </span>
                 </div>
               </div>

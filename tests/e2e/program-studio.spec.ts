@@ -111,7 +111,7 @@ test("runs the real VM, verifies and exports a state proof, and prepares Phase 5
   expect(claim.submission.transitionCount).toBe(63);
   expect(claim.submission.initialProof.siblings).toHaveLength(6);
   expect(claim.submission.finalProof.siblings).toHaveLength(6);
-  await expect(page.getByText("No wallet was opened and no transaction was sent.")).toBeVisible();
+  await expect(page.getByText(/Preparing or exporting this payload does not submit/)).toBeVisible();
 });
 
 test("validates the bounded assembly grammar and preserves full-width uint64 input", async ({

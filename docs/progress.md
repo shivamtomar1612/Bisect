@@ -1,5 +1,12 @@
 # Development progress
 
+## 2026-11-01 — Phase 12 wallet and account ledger implementation
+
+- Added external wallet connection and chain switching, live contract-backed claim submission and pull withdrawal, pending/confirmed/reverted transaction states, and exact wei account views.
+- Added a validated, read-only account ledger API over the Phase 8 indexer and confirmed activity CSV export.
+- No Base Sepolia registry address has been deployed/configured yet. Public-network financial transaction verification remains pending; the UI does not invent it. See [phase-12-report.md](phase-12-report.md).
+- Web typecheck and production build passed; 58 unit tests, 55 Foundry tests and 21 Chromium checks passed (18 existing plus 3 Phase 12 checks). Targeted changed-file Biome check passed. Repository-wide lint/format checks failed on Windows CRLF line endings in untouched files. The protocol remains unaudited.
+
 ## 2026-11-01 — Phase 6A trace integrity and data availability
 
 ### Completed

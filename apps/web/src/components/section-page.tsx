@@ -8,10 +8,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AccountLedger } from "./account-ledger";
 import { ActivityTable } from "./activity-table";
 import { ProgramStudio } from "./program-studio";
 import { SecurityDialog } from "./security-dialog";
-import { Badge, FinancialAmount, ProofStatus, StatePanel, WalletSecurityNotice } from "./ui";
+import { Badge, ProofStatus, StatePanel, WalletSecurityNotice } from "./ui";
 
 export const sections = {
   overview: {
@@ -225,29 +226,7 @@ export function SectionPage({ section }: { section: SectionKey }) {
     return (
       <div className="page">
         <PageHeader section={section} />
-        <div className="callout">
-          Ledger values are read-only projections of confirmed contract events. Database records
-          never authorize a transfer.
-        </div>
-        <div className="grid" style={{ margin: "18px 0" }}>
-          {[
-            { title: "Wallet balance", note: "Held by your external wallet" },
-            { title: "Contract-locked ETH", note: "Bonds committed to open protocol obligations" },
-            { title: "Withdrawable ETH", note: "Credits available through the contract" },
-          ].map((item) => (
-            <section className="card pad" key={item.title}>
-              <h3>{item.title}</h3>
-              <p className="metric">
-                <FinancialAmount />
-              </p>
-              <p className="small muted">{item.note}</p>
-            </section>
-          ))}
-        </div>
-        <ActivityTable rows={[]} />
-        <p className="small muted ledger-note">
-          Withdrawal controls are not available in this phase.
-        </p>
+        <AccountLedger />
       </div>
     );
   if (section === "documentation")
