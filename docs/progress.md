@@ -1,5 +1,28 @@
 # Development progress
 
+## 2026-11-01 — Phase 17 Base Sepolia deployment preparation
+
+### Completed
+
+- Added a chain-guarded Foundry deployment entry point for the integrated `BisectDisputeRegistryV1`. It accepts only chain ID 84532, requires explicit bond/window parameters, uses the selected local Foundry account rather than a private-key environment variable, and verifies deployed getters/code.
+- Added a read-only SDK post-deployment verifier for the chain ID, canonical successful creation receipt, sender/address, block hash, six-block confirmation depth, runtime code, protocol versions and immutable economics.
+- Added an explicit `not-deployed` Base Sepolia manifest, environment-template placeholders with no signer secret, and an operations runbook covering deployment, testnet demo, hosting, database and incident limits.
+- No public deployment or financial action occurred. The manifest/address configuration remains empty. No hosting provider is selected.
+
+### Verification
+
+- `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`, `pnpm build`, and `pnpm e2e` passed. Vitest passed 73 tests; Playwright passed 27 Chromium tests. Biome reported 16 warnings and 610 informational suggestions, no errors.
+- `forge build --force --root contracts` compiled 13 files with solc 0.8.30. `pnpm contracts:test` passed 59 tests across 8 suites, including fuzzing and two stateful invariants, each with 256 runs and 128,000 calls.
+- `pnpm check:base-sepolia` read chain ID 84532 from the public RPC. No transaction was sent to that RPC.
+- Local Anvil-only deployment simulation/broadcast and read-only verifier checks passed; the separate chain-8453 test correctly reverted. The local receipt/address are recorded only in `docs/phase-17-report.md` and must not be treated as Base Sepolia.
+- `pnpm indexer:test:integration` passed against local Anvil and PostgreSQL: 19 final canonical events after reorg, 27 balanced postings, ledger reconciliation `MATCH`; `pnpm db:smoke` passed Prisma PostgreSQL read/write.
+- The full `pnpm check:all` sequence remains blocked at Docker restart/persistence: Docker Desktop's `exec` failed with `OCI runtime exec failed ... fork/exec /proc/self/fd/6: no such file or directory`. PostgreSQL direct TCP, Prisma smoke and the integration test succeeded, but Compose currently reports the database container unhealthy.
+
+### Readiness and blockers
+
+- **Local release preparation: PASS with a Docker restart-health limitation. Public Base Sepolia deployment: NOT DONE.** The local deployer keystore/account and funded test ETH are unavailable here; immutable public demo economics have not been approved. No explorer verification, hosted web/API/database, public monitoring/backups, or testnet claim-to-withdrawal walkthrough exists.
+- Do not call this a public deployment or production release. After a dedicated encrypted keystore and funded test address are prepared locally, review the candidate parameters, simulate, explicitly broadcast, verify the receipt/code, then configure hosting and run the public financial walkthrough. See [`phase-17-report.md`](phase-17-report.md) and [`base-sepolia-operations.md`](base-sepolia-operations.md).
+
 ## 2026-11-01 — Phase 16 gas benchmarks and protocol economics
 
 ### Completed

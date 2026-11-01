@@ -1,0 +1,15 @@
+{
+  "status": "not-deployed",
+  "chainId": 84532,
+  "contractName": "BisectDisputeRegistryV1",
+  "protocolVersion": 1,
+  "vmVersion": 1,
+  "encodingVersion": 1,
+  "address": null,
+  "deployer": null,
+  "deploymentTransactionHash": null,
+  "deploymentBlock": null,
+  "constructorParameters": null,
+  "runtimeCodeHash": null,
+  "explorerVerification": "not-submitted"
+}

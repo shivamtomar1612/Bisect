@@ -80,6 +80,10 @@ Contract checks require Foundry. Database checks require the local PostgreSQL se
 
 `pnpm phase16:benchmark` compares direct VM execution with honest and disputed claim lifecycles using actual local Anvil receipts, then regenerates machine-readable results and charts. Bonds are reported as collateral, separately from gas. The dashboard's economics panel is explicitly labeled as a dated Anvil sample and does not represent Base Sepolia activity. See [docs/phase-16-report.md](docs/phase-16-report.md).
 
+Base Sepolia deployment is prepared but not performed. `contracts/script/BaseSepoliaDeploy.s.sol` is chain-guarded, and `pnpm verify:base-sepolia-deployment` is a read-only post-deployment verifier. See [docs/base-sepolia-operations.md](docs/base-sepolia-operations.md) for the encrypted-keystore workflow, proposed testnet parameters, service setup, and release blockers. No deployment address or transaction hash is published until a real receipt and runtime code are verified.
+
+The Phase 17 release gate, local-only deployment-script evidence, public RPC check, and remaining testnet/hosting blockers are recorded in [docs/phase-17-report.md](docs/phase-17-report.md). A local Anvil deployment is not a Base Sepolia deployment.
+
 `pnpm check:phase8` runs the TypeScript and contract checks, starts local PostgreSQL if needed, applies Prisma migrations, and runs a real Anvil-to-PostgreSQL event-indexer integration scenario. The scenario uses actual local test-ETH transactions and verifies confirmation gating, restart/replay idempotence, API pagination, journal balance, reconciliation, and a controlled reorganization. It does not use Base Sepolia or establish deployment readiness.
 
 ## Indexer and ledger
