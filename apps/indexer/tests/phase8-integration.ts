@@ -295,6 +295,7 @@ async function verifyApi(
       claimDetails,
       filteredClaims,
       disputes,
+      disputeTimeline,
       deposits,
       lockedBonds,
       penalties,
@@ -319,6 +320,7 @@ async function verifyApi(
         `${baseUrl}/v1/claims?limit=5&q=${encodeURIComponent(firstClaim.contextHash.slice(0, 12))}&status=${firstClaim.status}`,
       ),
       fetch(`${baseUrl}/v1/disputes?limit=1`),
+      fetch(`${baseUrl}/v1/disputes/1/1/timeline`),
       fetch(`${baseUrl}/v1/deposits?limit=1`),
       fetch(`${baseUrl}/v1/locked-bonds?limit=1`),
       fetch(`${baseUrl}/v1/penalties?limit=1`),
@@ -342,6 +344,7 @@ async function verifyApi(
       claimDetails.status !== 200 ||
       filteredClaims.status !== 200 ||
       disputes.status !== 200 ||
+      disputeTimeline.status !== 200 ||
       deposits.status !== 200 ||
       lockedBonds.status !== 200 ||
       penalties.status !== 200 ||
@@ -353,6 +356,22 @@ async function verifyApi(
       throw new Error("Read-only indexer API did not return indexed data.");
     }
     const summary: unknown = await dashboardOverview.json();
+    const timeline: unknown = await disputeTimeline.json();
+    if (
+      !isRecord(timeline) ||
+      timeline["claimId"] !== "1" ||
+      timeline["gameNumber"] !== "1" ||
+      !Array.isArray(timeline["events"]) ||
+      !timeline["events"].some(
+        (event: unknown) => isRecord(event) && event["eventName"] === "ChallengeStarted",
+      ) ||
+      !timeline["events"].some(
+        (event: unknown) => isRecord(event) && event["eventName"] === "GameBondCredited",
+      )
+    )
+      throw new Error(
+        "Confirmed dispute timeline did not include the real opening and settlement events.",
+      );
     if (
       !isRecord(summary) ||
       !isRecord(summary["metrics"]) ||

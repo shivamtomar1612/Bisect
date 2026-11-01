@@ -1818,3 +1818,120 @@ section.studio-dishonest-scenario .studio-scenario-states code {
     font-size: 9px;
   }
 }
+/* Ordered bisection replay. Every interval uses its exact state indices. */
+.dispute-viz {
+  display: grid;
+  gap: 18px;
+}
+.dispute-viz .callout {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.viz-simulation {
+  border-color: var(--warn);
+  background: var(--warnsoft);
+}
+.viz-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.viz-summary strong {
+  display: block;
+  margin-top: 7px;
+  font-size: clamp(1.55rem, 3vw, 2.3rem);
+  line-height: 1.1;
+}
+.viz-summary p {
+  color: var(--muted);
+  margin-bottom: 0;
+}
+.viz-stage {
+  overflow: hidden;
+}
+.viz-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 22px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.viz-track {
+  height: 38px;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--soft) 0,
+    var(--soft) 1px,
+    transparent 1px,
+    transparent 5%
+  );
+  overflow: hidden;
+}
+.viz-retained {
+  position: absolute;
+  inset-block: 0;
+  background: var(--accentsoft);
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  min-width: 3px;
+  transition:
+    left 0.35s ease,
+    width 0.35s ease;
+}
+.viz-midpoint {
+  position: absolute;
+  inset-block: 0;
+  width: 2px;
+  background: var(--warn);
+  z-index: 1;
+}
+.viz-controls,
+.viz-round-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 18px;
+}
+.viz-hashes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 24px;
+}
+.viz-hashes p,
+.viz-finance p {
+  margin: 7px 0;
+}
+.viz-hashes code,
+.dispute-viz details code {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 0.77rem;
+}
+.dispute-viz details {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.dispute-viz summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+.viz-round-list .button[aria-current="step"] {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+@media (max-width: 700px) {
+  .viz-summary,
+  .viz-hashes {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .viz-retained {
+    transition: none;
+  }
+}

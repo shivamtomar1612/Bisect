@@ -308,7 +308,11 @@ export function DisputesExplorer({
                 );
                 return (
                   <tr key={dispute.id}>
-                    <th scope="row">Game {dispute.gameNumber}</th>
+                    <th scope="row">
+                      <Link href={`/disputes/${dispute.claimId}/${dispute.gameNumber}`}>
+                        Game {dispute.gameNumber} · replay
+                      </Link>
+                    </th>
                     <td>
                       <div className="participant-list">
                         <code title={dispute.proverAddress}>

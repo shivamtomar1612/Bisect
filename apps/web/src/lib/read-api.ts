@@ -406,3 +406,14 @@ export async function getDisputes(query: string): Promise<ReadResult<ReadPage<Di
     parsePage(body, parseDispute),
   );
 }
+
+export async function getDisputeTimeline(
+  claimId: string,
+  gameNumber: string,
+): Promise<ReadResult<unknown>> {
+  const response = await fetchApi(
+    `v1/disputes/${encodeURIComponent(claimId)}/${encodeURIComponent(gameNumber)}/timeline`,
+  );
+  if (response.kind === "service" && response.status === 404) return { kind: "not-found" };
+  return withParsed(response, (body) => body);
+}

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ClaimsExplorer, DisputesExplorer, ReadDataNotice } from "../../components/explorers";
 import { PageHeader, type SectionKey, SectionPage, sections } from "../../components/section-page";
@@ -58,6 +59,13 @@ export default async function Page({
     return (
       <div className="page">
         <PageHeader section="disputes" />
+        <p className="callout">
+          <strong>Learn the protocol:</strong>{" "}
+          <Link href="/disputes/demo">
+            Watch a clearly labeled 1,023-transition educational simulation
+          </Link>
+          .
+        </p>
         {result.kind === "ready" ? (
           <DisputesExplorer page={result.value} {...common} />
         ) : result.kind === "not-found" ? null : (

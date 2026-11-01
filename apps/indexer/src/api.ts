@@ -214,6 +214,85 @@ async function listDisputes(config: IndexerConfig, url: URL, limit: number, curs
   );
 }
 
+async function disputeTimeline(config: IndexerConfig, rawClaimId: string, rawGameNumber: string) {
+  if (!/^[1-9][0-9]{0,77}$/.test(rawClaimId) || BigInt(rawClaimId) > (1n << 256n) - 1n)
+    throw new Error("claim ID must be a positive uint256 decimal.");
+  if (!/^[1-9][0-9]{0,77}$/.test(rawGameNumber) || BigInt(rawGameNumber) > (1n << 256n) - 1n)
+    throw new Error("game number must be a positive uint256 decimal.");
+  const dispute = await prisma.dispute.findUnique({
+    where: {
+      chainId_contractAddress_claimId_gameNumber: {
+        chainId: config.chainId,
+        contractAddress: config.contractAddress.toLowerCase(),
+        claimId: new Prisma.Decimal(rawClaimId),
+        gameNumber: new Prisma.Decimal(rawGameNumber),
+      },
+    },
+    include: {
+      claim: {
+        select: {
+          traceRoot: true,
+          transitionCount: true,
+          prover: { select: { address: true } },
+          deposits: { where: { kind: "PROVER" }, select: { amountWei: true, status: true } },
+        },
+      },
+      challenger: { select: { address: true } },
+      deposits: { where: { kind: "CHALLENGER" }, select: { amountWei: true, status: true } },
+      settlements: {
+        select: {
+          amountWei: true,
+          beneficiary: { select: { address: true } },
+          transactionHash: true,
+          blockNumber: true,
+        },
+      },
+    },
+  });
+  if (dispute === null) return null;
+  const events = await prisma.chainEvent.findMany({
+    where: {
+      chainId: config.chainId,
+      contractAddress: config.contractAddress.toLowerCase(),
+      status: "CONFIRMED",
+      payload: { path: ["claimId"], equals: rawClaimId },
+      AND: [{ payload: { path: ["gameNumber"], equals: rawGameNumber } }],
+    },
+    orderBy: [{ blockNumber: "asc" }, { transactionIndex: "asc" }, { logIndex: "asc" }],
+    take: 65,
+    select: {
+      eventName: true,
+      payload: true,
+      blockNumber: true,
+      blockHash: true,
+      transactionHash: true,
+      transactionIndex: true,
+      logIndex: true,
+    },
+  });
+  const lag = await indexerLag(config);
+  return {
+    chainId: config.chainId,
+    contractAddress: config.contractAddress.toLowerCase(),
+    claimId: rawClaimId,
+    gameNumber: rawGameNumber,
+    proverRoot: dispute.claim.traceRoot,
+    challengerRoot: dispute.challengerRoot,
+    transitionCount: dispute.claim.transitionCount,
+    expectedRounds: dispute.bisectionRounds,
+    status: dispute.status,
+    outcome: dispute.outcome,
+    prover: dispute.claim.prover.address,
+    challenger: dispute.challenger.address,
+    proverBond: dispute.claim.deposits[0] ?? null,
+    challengerBond: dispute.deposits[0] ?? null,
+    settlements: dispute.settlements,
+    lag,
+    truncated: events.length > 64,
+    events: events.slice(0, 64),
+  };
+}
+
 async function claimDetail(config: IndexerConfig, rawClaimId: string) {
   if (!/^(0|[1-9][0-9]{0,77})$/.test(rawClaimId))
     throw new Error("claim ID must be a uint256 decimal.");
@@ -626,6 +705,18 @@ async function route(
   }
   if (path === "/v1/claims") {
     respond(response, 200, await listClaims(config, url, limit, cursor));
+    return;
+  }
+  const timelineMatch = /^\/v1\/disputes\/([^/]+)\/([^/]+)\/timeline$/.exec(path);
+  if (timelineMatch !== null) {
+    assertKnownQuery(url, []);
+    const timeline = await disputeTimeline(
+      config,
+      decodeURIComponent(timelineMatch[1] ?? ""),
+      decodeURIComponent(timelineMatch[2] ?? ""),
+    );
+    if (timeline === null) respond(response, 404, { error: "dispute_not_found" });
+    else respond(response, 200, timeline);
     return;
   }
   if (path === "/v1/disputes") {

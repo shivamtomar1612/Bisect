@@ -1,5 +1,12 @@
 # Development progress
 
+## 2026-11-01 — Phase 14 interactive bisection visualizer
+
+- Added a confirmed dispute-event timeline API, ordered child-hash replay verifier, real dispute route, accessible interval visualizer, and clearly labeled 1,023-transition educational simulation.
+- Measured the simulation with 10 actual Merkle reductions to the altered state at index 700. The underlying VM/SDK data is real; its rounds are simulated and no financial outcome is claimed.
+- `pnpm test` passed 65 tests; web/indexer typechecks, production build, 3 Chromium visualizer tests, PostgreSQL health and Anvil/PostgreSQL indexer integration passed. Repository-wide lint/format still fail on pre-existing Windows CRLF checkout formatting.
+- No configured Base Sepolia deployment or indexed completed bisection is available for a real browser replay. See [phase-14-report.md](phase-14-report.md).
+
 ## 2026-11-01 — Phase 13 challenger interface
 
 - Added a claim challenger route with on-chain context inspection, independent VM/Merkle replay, exact-bond challenge submission, ordered-child bisection moves, terminal proof submission, timeout action and live game/credit views.
