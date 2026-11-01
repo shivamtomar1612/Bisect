@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ActivityTable } from "./activity-table";
+import { ProgramStudio } from "./program-studio";
 import { SecurityDialog } from "./security-dialog";
 import { Badge, FinancialAmount, ProofStatus, StatePanel, WalletSecurityNotice } from "./ui";
 
@@ -217,32 +218,7 @@ export function SectionPage({ section }: { section: SectionKey }) {
             </Link>
           }
         />
-        <div className="grid two">
-          <section className="card pad">
-            <Boxes className="feature-icon" size={20} />
-            <h2 style={{ marginTop: 18 }}>Deterministic by design</h2>
-            <p className="lead" style={{ marginTop: 8 }}>
-              Programs use the fixed BISECT VM instruction set. Arbitrary JavaScript and host
-              operations are not part of execution.
-            </p>
-            <div className="spec-list">
-              <span>8 uint64 registers</span>
-              <span>4-byte instructions</span>
-              <span>128 instruction maximum</span>
-              <span>Fixed transition budgets</span>
-            </div>
-          </section>
-          <StatePanel
-            kind="empty"
-            title="No program loaded"
-            detail="Program editing and execution are not connected in this interface yet. The VM package and CLI remain available to developers."
-            action={
-              <Link className="button primary" href="/documentation">
-                Open developer docs
-              </Link>
-            }
-          />
-        </div>
+        <ProgramStudio />
       </div>
     );
   if (section === "account-ledger")

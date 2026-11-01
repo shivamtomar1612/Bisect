@@ -373,4 +373,34 @@ The repository was empty at initial setup. The initial foundation created one re
 - **Phase 10 local product gate: PASS.** **Base Sepolia data integration: PARTIAL** because there is no deployed registry address or deployment block configured; all populated screenshot and transaction evidence is from local Anvil.
 - Search/filter/pagination and confirmed on-chain references are read-only. No signing, claim/challenge creation, or withdrawal UI exists. The Account Ledger route remains a future layout.
 - The frontend depends on the indexer's confirmation/finality policy and does not supply trace data availability. The system remains unaudited and is not production-secure.
-- Phase 11 has not been started. Full evidence: `docs/phase-10-report.md`.
+- Phase 11 follows in `docs/phase-11-report.md`.
+
+## 2026-11-01 — Phase 11 interactive Program Studio and Trace Explorer
+
+### Completed
+
+- Replaced the Program Studio placeholder with an assembly editor backed by the existing BISECT v1 parser and the real Phase 2 VM. It accepts only supported assembly, exactly eight decimal-string uint64 inputs, at most 128 instructions, and the approved transition budgets.
+- Runs execute locally in the browser using the Phase 3 SDK to build the ordered Keccak trace commitment. No arbitrary code is evaluated and no chain RPC or wallet is used.
+- Added result/context summaries, instruction-level state navigation, play/pause/next/previous/reset controls, register-change highlights, state and leaf hashes, and a bounded virtual list that renders a small viewport for up to 4,096 states.
+- Added real state-proof generation and verification against the exact run context, downloadable proof and execution artifacts, and an explicit tampered-sibling rejection check.
+- Added an explicitly test-only, same-output altered intermediate trace. Its altered-root membership proof verifies while the first state transition is rejected by the VM transition verifier; the fixture cannot produce a claim payload.
+- Added local Phase 5 `ClaimSubmission` preparation from verified initial/final endpoint proofs, exact ABI-encoded `submitClaim` calldata, and JSON export. The deployment bond remains caller-supplied `msg.value`; the Studio does not request a wallet signature or submit a transaction.
+- Added branching and HALT/stutter examples; updated the product design and interaction contracts; added production-browser E2E coverage.
+
+### Verification
+
+- `pnpm format:check` — passed; 156 files checked.
+- `pnpm lint --reporter=summary` — passed with exit 0. Biome reports 286 informational suggestions in pre-existing files; no blocking diagnostics. The changed Studio/CSS files pass targeted Biome checks without diagnostics.
+- `pnpm typecheck` — passed across all 7 applicable workspace projects.
+- `pnpm test` — passed; 58 tests across 8 files.
+- `pnpm build` — passed; VM, Merkle and SDK package builds plus the Next.js production build and route generation.
+- `pnpm web:a11y` — passed; 2 Chromium accessibility smoke tests.
+- `pnpm e2e` — passed against the production server; 18 Chromium tests including deterministic execution, inclusion proof, export, payload preparation, boundary arithmetic, 4,096-state virtualization, navigation controls, dishonest-trace detection, accessibility and narrow-screen layout.
+- `pnpm --filter @bisect/vm cli vm run example:addition --input "[7,5,0,0,0,0,0,0]" --budget 63` — passed. Output `12`, halt index `2`, 64 trace states, root `0x0b4d6162f7b834cda766d7f80641823fcc73e50c2f60940b2d12d9f3db101cfd`.
+
+### Readiness and limits
+
+- **Phase 11 Program Studio: PASS.** The Studio uses the implemented v1 VM and SDK locally and prepares, but does not submit, the Phase 5 payload.
+- The claim export is ABI-encoded unsigned calldata only. A deployment address, configured bond, wallet interaction, transaction, gas estimate, or chain result is not inferred or fabricated.
+- The malicious trace is an isolated local test fixture with a distinct altered root; it is not a fraud-proof result and does not cause an on-chain outcome.
+- The protocol remains unaudited, and Base Sepolia deployment/data remain unconfigured. See [`docs/phase-11-report.md`](phase-11-report.md).

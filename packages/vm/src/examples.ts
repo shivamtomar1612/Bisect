@@ -44,6 +44,16 @@ const exampleSources: Readonly<
     input: ["5", "0", "0", "0", "0", "0", "0", "0"],
     maxInput: 19n,
   },
+  branching: {
+    description: "Takes one of two deterministic branches and records which path ran in R1.",
+    source: "JNZ R0, nonzero\nMOVI R1, 0\nHALT\nnonzero:\nMOVI R1, 1\nHALT\n",
+    input: ["1", "0", "0", "0", "0", "0", "0", "0"],
+  },
+  "halt-stutter": {
+    description: "Writes R1, halts, then preserves the exact halted state for the remaining trace.",
+    source: "MOVI R1, 7\nHALT\n",
+    input: ["0", "0", "0", "0", "0", "0", "0", "0"],
+  },
   nonterminating: {
     description: "A valid infinite self-loop when R0 is nonzero; default input is 1.",
     source: "JNZ R0, loop\nHALT\nloop:\nJNZ R0, loop\nHALT\n",

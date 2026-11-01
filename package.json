@@ -8,8 +8,9 @@
     "pnpm": "11.25.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @bisect/web dev",
-    "build": "pnpm --filter @bisect/vm run build && pnpm --filter @bisect/merkle run build && pnpm --filter @bisect/sdk run build && pnpm --filter @bisect/web run build",
+    "dev": "pnpm build:protocol-packages && pnpm --filter @bisect/web dev",
+    "build:protocol-packages": "pnpm --filter @bisect/vm run build && pnpm --filter @bisect/merkle run build && pnpm --filter @bisect/sdk run build",
+    "build": "pnpm build:protocol-packages && pnpm --filter @bisect/web run build",
     "lint": "biome check .",
     "format": "biome format --write .",
     "format:check": "biome format .",

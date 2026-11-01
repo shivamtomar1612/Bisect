@@ -26,6 +26,10 @@ Use system Inter when available with Arial/Helvetica fallback. Headings are comp
 
 ## Layout and behavior
 
+The Program Studio is a product workspace, not a code playground: its editor accepts only BISECT assembly, public inputs remain exact decimal uint64 strings, and runs use the bounded local VM and SDK. The instruction editor uses a restrained monospace surface; trace selection, register deltas, and proof metadata use the same semantic surfaces and accent/verified colors as the rest of the app. Long traces use a bounded, virtualized native scroll panel. Proof membership and transition validity are explained separately.
+
+Scrollable product surfaces use a theme-aware scrollbar thumb and track while retaining native scrolling and forced-colors behavior. Runtime CSS variables remain canonical; this document records accepted values and rationale.
+
 Desktop uses a persistent 248px sidebar and a fluid content region. Tablet narrows the sidebar and changes three-column summaries to two columns. Mobile uses an overlay navigation drawer with Escape, focus cycling, and a backdrop; data tables scroll horizontally. Reduced-motion preferences disable transitions. All interactive controls use native buttons, links, search input, or select semantics and visible focus rings.
 
 ## Phase 10 routes and read data

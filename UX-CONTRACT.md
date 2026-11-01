@@ -2,6 +2,18 @@
 
 ## Canonical UI Map
 
+### Program Studio behavior
+
+- The example selector and transition-budget selector are native selects. Native popup geometry is accepted; both have visible labels and keyboard/browser-native selection behavior.
+- The assembly editor accepts only the bounded BISECT assembly grammar. It never evaluates JavaScript, shell input, or external source. Syntax and operand errors remain inline and are associated with the editor.
+- Public inputs are eight decimal-string uint64 values. Values are parsed with the VM's BigInt validator and never pass through floating point.
+- Run executes the actual v1 VM and ordered Merkle SDK in the browser. It accepts only the four protocol budgets and the VM's 128-instruction maximum. A run that does not halt is shown as budget-exhausted and cannot produce a claim payload.
+- The trace panel virtualizes visible rows, reports the total state count and selected index, and exposes keyboard-operable play, pause, reset, next, previous, and state-selection buttons. The selected-state panel shows PC, halted status, all eight registers, changed-register highlights, canonical state hash, and indexed leaf hash.
+- Inclusion proof generation and local verification are separate actions. Feedback binds verification to the selected run's program, input, budget, context, and root. A test control mutates a sibling only in a copy and must show rejection without changing the genuine proof artifact.
+- The dishonest-trace fixture is explicitly test-only. Its altered trace root and membership proof demonstrate that Merkle inclusion does not prove transition validity; it cannot be used to prepare a claim.
+- Execution bundles contain canonical program bytes, assembly text, exact decimal-string inputs/results, trace states, commitment metadata, and any selected proof. The Phase 5 export mirrors ClaimSubmission and contains locally encoded submitClaim calldata, but does not include or invent msg.value. Preparing or exporting either artifact never opens a wallet or submits a transaction.
+- The trace list is the single bounded vertical scroll owner for its virtualized rows. On narrow viewports the editor and state panels stack; register values and hashes may scroll or wrap without creating page-level horizontal overflow.
+
 | Capability     | Canonical owner                | Source of truth                    | Allowed variants | Verification                                  |
 | -------------- | ------------------------------ | ---------------------------------- | ---------------- | --------------------------------------------- |
 | Select/Listbox | Native activity status filter  | This contract and browser platform | Native select    | E2E accessible-name and disabled-state checks |

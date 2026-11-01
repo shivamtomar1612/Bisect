@@ -53,6 +53,12 @@ Phase 7 adds generated intermediate-mismatch vectors and a production-registry i
 - **Web application:** the Phase 10 landing page and read-only workspace retain the Phase 9 design system. The dashboard, claims explorer, disputes explorer, and claim detail read confirmed data from the Phase 8 API when `BISECT_INDEXER_API_URL` is configured. The indexer adds an aggregate overview and claim-detail endpoint; search/status filters and cursor navigation use the paginated API. API unavailability is shown as an error state rather than an empty result or fabricated zero. The Account Ledger route remains a read-only future layout. The frontend does not sign transactions or initiate withdrawals. There is no configured Base Sepolia deployment in this repository.
 - **PostgreSQL:** stores derived service records only; contract state remains authoritative.
 
+## Phase 11 Program Studio
+
+The browser Program Studio consumes the Phase 2 VM and Phase 3 SDK. It validates BISECT assembly, exactly eight decimal-string uint64 inputs, and one approved transition budget before execution. The VM runs locally in the browser without evaluating user JavaScript or contacting a chain. The Studio displays every bounded trace through a virtualized state list, generates and verifies context-bound state proofs, and exports canonical artifacts with uint64 values preserved as decimal strings.
+
+For halted runs, the Studio can prepare the exact Phase 5 ClaimSubmission tuple, its authenticated initial/final endpoint proofs, and viem-encoded submitClaim calldata using the generated integrated-registry ABI. The configured prover bond remains a separate msg.value and is not invented. Preparing or exporting data never requests a wallet signature or submits a transaction. A separate explicitly test-only fixture proves membership for a deliberately modified intermediate trace while showing that its first VM transition is invalid and its final output remains unchanged; that altered root cannot be used for a claim.
+
 ## Trust and release assumptions
 
 The protocol assumes Keccak-256 collision resistance, correct EVM/Solidity semantics, a non-upgradeable verifier, chain liveness, transaction inclusion, and an honest challenger able to observe the challenge window and act within the turn windows. It does not guarantee off-chain trace data availability, censorship resistance, or finality; chain reorg/finality and window values must be published per deployment. See `security-model.md`.
