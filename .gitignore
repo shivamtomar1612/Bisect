@@ -2,6 +2,7 @@
 node_modules/
 .pnpm-store/
 .tools/
+.bisect/
 apps/indexer/src/generated/prisma/
 .next/
 apps/web/next-env.d.ts

@@ -2,8 +2,20 @@
   "name": "@bisect/challenger",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/cli.js start",
+    "dev": "tsx src/cli.ts",
+    "help": "tsx src/cli.ts --help"
+  },
+  "dependencies": {
+    "@bisect/sdk": "workspace:*",
+    "@bisect/vm": "workspace:*",
+    "viem": "2.57.13"
+  },
+  "devDependencies": {
+    "tsx": "4.20.6"
   }
 }

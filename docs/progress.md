@@ -424,3 +424,33 @@ The repository was empty at initial setup. The initial foundation created one re
 - The claim export is ABI-encoded unsigned calldata only. A deployment address, configured bond, wallet interaction, transaction, gas estimate, or chain result is not inferred or fabricated.
 - The malicious trace is an isolated local test fixture with a distinct altered root; it is not a fraud-proof result and does not cause an on-chain outcome.
 - The protocol remains unaudited, and Base Sepolia deployment/data remain unconfigured. See [`docs/phase-11-report.md`](phase-11-report.md).
+
+## 2026-11-01 — Phase 15 automated challenger prototype
+
+### Completed
+
+- Added an optional TypeScript challenger service using the existing VM, Merkle SDK, Phase 6 dispute ABI, and authoritative claim/game contract reads. It independently checks context and trace roots, detects same-output intermediate trace fraud, builds real initial and terminal proofs, and follows the locked child-hash bisection protocol.
+- Added dry-run-by-default configuration, explicit broadcast opt-in, dedicated signer validation, local-only unlocked-account support, live chain/version checks, bond/total-exposure/gas/balance limits, bounded polling retries, emergency stop/disable controls, process locking, durable attempt/pending-write state, JSONL logs, and reorganization replay from deployment.
+- Added CLI commands for help, status, inspect, verify, dry-run, start, stop/resume and enable/disable. Added a local Anvil integration harness and unit coverage for honest claims, same-output intermediate fraud, context mismatch, proof evidence, and configuration safety.
+- Documented bot operation, the trace-data model, deployment setup, and remaining operational/security limitations in [`apps/challenger/README.md`](../apps/challenger/README.md), [`docs/architecture.md`](architecture.md), and [`docs/phase-15-report.md`](phase-15-report.md).
+
+### Verification
+
+- `pnpm --filter @bisect/challenger typecheck` — passed.
+- `pnpm exec vitest run tests/unit/challenger.test.ts` — passed, 6 tests, including durable pending-write/control-file persistence.
+- `pnpm challenger:e2e` — passed on a fresh local Anvil chain (chain ID `31337`): honest claim ignored; dishonest same-output intermediate trace challenged; 6 bisection rounds; outcome `PROVER_TRANSITION_INVALID`; pull credit `2,000,000,000,000,000` wei; spend-cap, insufficient-balance, controlled-reorg, and RPC-outage paths exercised. The harness used actual contract deployments, transactions, receipts, and event/escrow reconciliation. Measured scenario: 19 receipts, 7,207,265 gas used, aggregate receipt gas cost `12,807,818,065,010,651` wei; escrow liabilities/custody reconciled at `4,000,000,000,000,000` wei.
+- `pnpm lint` — passed, exit 0 (10 warnings and 541 informational suggestions; no errors).
+- `pnpm format:check` — passed, 185 files checked. Biome uses platform-native line endings so Windows `core.autocrlf` does not create false formatting failures.
+- `pnpm typecheck` — passed across all 7 applicable workspace projects.
+- `pnpm test` — passed, 71 tests across 11 files.
+- `pnpm build` — passed; VM, Merkle and SDK package builds plus the Next.js production build and route generation.
+- `pnpm build:challenger` — passed; emitted the compiled service under ignored `apps/challenger/dist/`.
+- `pnpm contracts:build` — passed; Foundry returned exit 0 with Solidity compilation incrementally skipped because sources were unchanged, and ABI generation completed.
+- `pnpm contracts:test` — passed, 55 Foundry tests across 7 suites, including fuzz runs and 256-run accounting invariants; 0 failed.
+- `pnpm challenger:help` — passed and printed CLI commands and broadcast safety requirements.
+
+### Readiness and limits
+
+- **Phase 15 local challenger prototype: PASS.** No Base Sepolia registry is configured and the bot did not broadcast to a public chain.
+- PostgreSQL indexing/reconciliation was not part of this bot E2E; this harness replayed actual chain events against contract totals in memory. No database changes were made.
+- The tool remains unaudited. Operator key protection, sufficient uptime/gas, RPC/network liveness, and manual reconciliation after ambiguous/reorged writes remain necessary assumptions. See [`docs/phase-15-report.md`](phase-15-report.md).
