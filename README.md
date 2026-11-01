@@ -91,6 +91,10 @@ The architecture overview is in [docs/architecture.md](docs/architecture.md), en
 
 This is unaudited research and engineering software. It is not production-secure and must not custody real funds.
 
+## Hackathon
+
+Project name: **BISECT — Optimistic Verification of Outsourced Computation**. The official BnB Final Round submission repository is [Diamonds_Final-Round](https://github.com/BnB-26-Final-Round/Diamonds_Final-Round); the personal development repository is [shivamtomar1612/Bisect](https://github.com/shivamtomar1612/Bisect). The official repository is organizer-managed and private. Preserve its existing rules and history when integrating this project.
+
 ## Contributing
 
 Read [AGENTS.md](AGENTS.md), [CONTRIBUTING.md](CONTRIBUTING.md), and [SECURITY.md](SECURITY.md) before making changes.

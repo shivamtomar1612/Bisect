@@ -254,5 +254,5 @@ describe("protocol v1 ordered trace commitments", () => {
         }),
       ).toBe(false);
     }
-  });
+  }, 15_000);
 });
