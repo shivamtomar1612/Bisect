@@ -65,6 +65,12 @@ The browser Program Studio consumes the Phase 2 VM and Phase 3 SDK. It validates
 
 For halted runs, the Studio can prepare the exact Phase 5 ClaimSubmission tuple, its authenticated initial/final endpoint proofs, and viem-encoded submitClaim calldata using the generated integrated-registry ABI. The configured prover bond remains a separate msg.value and is not invented. Preparing or exporting data never requests a wallet signature or submits a transaction. A separate explicitly test-only fixture proves membership for a deliberately modified intermediate trace while showing that its first VM transition is invalid and its final output remains unchanged; that altered root cannot be used for a claim.
 
+## Phase 16 gas benchmark
+
+`pnpm phase16:benchmark` executes matched deterministic workloads against a benchmark-only Solidity direct runner and the existing `BisectDisputeRegistryV1` on an isolated local Anvil chain. The direct runner calls the v1 verifier's bounded program validator and exact transition routine; it is not a protocol contract. Claim, challenge, bisection, terminal verification, timeout, finalization, and withdrawal costs are read from real local transaction receipts. Bond principal is tracked as collateral separately from receipt gas costs, and the runner checks the escrow invariant after each financial operation.
+
+Generated receipt data and SVG charts live in `docs/benchmarks/`; the web dashboard serves a copy labeled as a local Anvil snapshot, not Base Sepolia activity. The benchmark reports one six-instruction loop and one configuration only. It cannot establish Base Sepolia fees, universal break-even behavior, or production economics. See `phase-16-report.md` for the sample, lifecycle definitions, results, and limitations.
+
 ## Trust and release assumptions
 
 The protocol assumes Keccak-256 collision resistance, correct EVM/Solidity semantics, a non-upgradeable verifier, chain liveness, transaction inclusion, and an honest challenger able to observe the challenge window and act within the turn windows. It does not guarantee off-chain trace data availability, censorship resistance, or finality; chain reorg/finality and window values must be published per deployment. See `security-model.md`.

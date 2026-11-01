@@ -51,6 +51,8 @@
     "challenger": "pnpm --filter @bisect/challenger exec tsx src/cli.ts",
     "challenger:help": "pnpm --filter @bisect/challenger run help",
     "challenger:e2e": "pnpm --filter @bisect/challenger exec tsx scripts/phase15-anvil.mts",
+    "phase16:benchmark": "pnpm build:protocol-packages && pnpm contracts:build && pnpm --filter @bisect/sdk exec tsx scripts/phase16-benchmark.mts && pnpm exec biome format --write docs/benchmarks/phase-16-results.json apps/web/public/benchmarks/phase-16-results.json",
+    "check:phase16": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm build && pnpm contracts:build && pnpm contracts:test && pnpm phase16:benchmark",
     "build:challenger": "pnpm --filter @bisect/challenger run build",
     "check:base-sepolia": "node scripts/check-base-sepolia.mjs",
     "check:environment": "node scripts/check-environment.mjs",

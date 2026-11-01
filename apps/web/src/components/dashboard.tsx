@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { OverviewData, ReadFailure, ReadResult } from "../lib/read-api";
 import { ReadDataNotice } from "./explorers";
+import { Phase16Analytics } from "./phase16-analytics";
 import {
   AddressExplorerLink,
   Badge,
@@ -134,6 +135,7 @@ export function Dashboard({ result }: { result: ReadResult<OverviewData> }) {
           note="Confirmed test-ETH bonds currently marked locked"
         />
       </div>
+      <Phase16Analytics />
       {overview ? (
         <div className="dashboard-columns">
           <Checkpoint overview={overview} />

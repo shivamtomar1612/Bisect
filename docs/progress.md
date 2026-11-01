@@ -1,5 +1,34 @@
 # Development progress
 
+## 2026-11-01 — Phase 16 gas benchmarks and protocol economics
+
+### Completed
+
+- Added a benchmark-only Solidity direct-execution harness using the existing v1 validator and exact `BisectVerifier.step` rules. It is bounded to the four supported trace budgets and is not a protocol deployment contract.
+- Added a reproducible TypeScript runner that deploys the harness and actual dispute registry to isolated Anvil, then submits real test-ETH transactions for matched direct and optimistic workloads. It measures honest claims, successful disputes at all budgets, a failed challenge, prover timeout, withdrawals, and two simultaneous claims. Receipt gas, effective gas price, exact gas fees, calldata bytes, block numbers, transaction hashes and values are recorded.
+- Generated the machine-readable receipt artifact and SVG scaling charts in `docs/benchmarks/`, plus a local-only copy for the dashboard. Added read-only dashboard rendering that labels the snapshot as Anvil data and separates collateral from fees.
+- Added tests for exact receipt-fee arithmetic, supported-budget round counts, collateral separation and solvency reconciliation. Fixed two UI regressions found by Playwright: a duplicated accessible `status` role and 8px mobile dashboard overflow.
+
+### Verification
+
+- `pnpm phase16:benchmark` — passed on local Anvil chain ID 31337. Sample time: `2026-11-01T06:25:19.942Z`; 139 measured workload receipts, 31,230,912 total gas and `38,071,387,014,335,522` wei in receipt gas fees. The two deployment receipts are excluded from those totals and reported separately.
+- `pnpm contracts:build` — passed as part of the benchmark command using solc 0.8.30 and optimizer 200 runs. Foundry reports one non-failing lint warning for the bounded loop's transition-error classification.
+- `pnpm contracts:test` — passed, 59 tests across 8 suites, including fuzz tests and 256-run claim/dispute accounting invariants.
+- `pnpm lint --reporter=summary` — passed with exit 0; 16 warnings and 609 informational suggestions, no errors.
+- `pnpm format:check` — passed; 191 files checked.
+- `pnpm typecheck` — passed across all 7 applicable workspace projects.
+- `pnpm test` — passed; 73 tests across 12 files.
+- `pnpm build` — passed; VM, Merkle, SDK and optimized Next.js production build completed.
+- `pnpm e2e` — passed; 27 Chromium tests against the fresh production build, including the new dashboard analytics case and 375px layout checks.
+- `pnpm web:a11y` — passed; 2 Chromium accessibility smoke tests.
+
+### Readiness and limits
+
+- **Phase 16 local benchmark scope: PASS.** In the measured loop, optimistic no-dispute lifecycle gas exceeded direct execution at 63 and 255 transitions but was lower at 1,023 and 4,095. A successful dispute cost more than the direct baseline at the first three budgets and about 71% less at 4,095. These are workload- and configuration-specific observations, not universal break-even claims.
+- Total bonds deposited and later withdrawn were each 0.018 ETH; peak locked exposure was 0.006 ETH. The 0.006 ETH described as slashed collateral was credited to the winner and withdrawn; it was not a gas fee. Liabilities and contract balance reconciled to zero at run end, with solvency checked after financial operations.
+- No Base Sepolia RPC, deployment, or fee data was used. The direct baseline only executes the VM and does not include protocol storage, challenges or settlement; lifecycle comparisons make this scope difference explicit. This single six-instruction program is not a general workload survey, and the protocol remains unaudited.
+- No later phase was started. Full measurement definitions, tables, charts, and limitations are in [`phase-16-report.md`](phase-16-report.md).
+
 ## 2026-11-01 — Phase 14 interactive bisection visualizer
 
 - Added a confirmed dispute-event timeline API, ordered child-hash replay verifier, real dispute route, accessible interval visualizer, and clearly labeled 1,023-transition educational simulation.

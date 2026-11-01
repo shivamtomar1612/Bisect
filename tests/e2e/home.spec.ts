@@ -195,7 +195,21 @@ test("missing wallet shows guidance without a completed transaction", async ({ p
   await page.goto("/dashboard");
   await page.getByRole("button", { name: "Connect wallet" }).click();
   await expect(page.getByRole("status")).toContainText("Install an EVM wallet");
-  await expect(page.getByRole("table")).toHaveCount(0);
+  await expect(page.getByText(/withdrawal confirmed|claim submitted/i)).toHaveCount(0);
+});
+
+test("dashboard displays the measured local economics snapshot with an explicit testnet boundary", async ({
+  page,
+}) => {
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: "Gas and computation scaling" })).toBeVisible();
+  await expect(page.getByText("Local benchmark · not Base Sepolia")).toBeVisible();
+  await expect(page.getByRole("table", { name: /measured gas units/i })).toContainText("4,095");
+  await expect(page.getByText("Bond deposits in benchmark run")).toBeVisible();
+  const charts = page.getByRole("img", { name: /measured gas used|measured bisection rounds/i });
+  await expect(charts).toHaveCount(2);
+  const gasChart = await page.request.get("/benchmarks/phase-16-gas.svg");
+  expect(gasChart.ok()).toBe(true);
 });
 
 test("landing page and dashboard fit a narrow mobile viewport", async ({ page }) => {

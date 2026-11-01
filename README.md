@@ -63,6 +63,7 @@ pnpm merkle:vectors
 pnpm contracts:build
 pnpm contracts:test
 pnpm phase6:anvil
+pnpm phase16:benchmark
 pnpm contracts:vectors
 pnpm check:phase4
 pnpm check:phase5
@@ -76,6 +77,8 @@ pnpm check:all
 Contract checks require Foundry. Database checks require the local PostgreSQL service. Browser tests require Playwright's Chromium browser (`pnpm exec playwright install chromium`). `pnpm check:all` runs the environment, database, RPC, TypeScript, contract, and browser checks and stops with a nonzero status at the first failure. No check should be described as passing unless it was run successfully in the current environment.
 
 `pnpm phase6:anvil` builds the VM, Merkle package, and dispute contract; starts an isolated local Anvil chain; deploys the registry; mines a complete dishonest-prover challenge using two unlocked local test accounts; verifies event/accounting results; withdraws the challenger credit; and stops Anvil. It uses no testnet or private key.
+
+`pnpm phase16:benchmark` compares direct VM execution with honest and disputed claim lifecycles using actual local Anvil receipts, then regenerates machine-readable results and charts. Bonds are reported as collateral, separately from gas. The dashboard's economics panel is explicitly labeled as a dated Anvil sample and does not represent Base Sepolia activity. See [docs/phase-16-report.md](docs/phase-16-report.md).
 
 `pnpm check:phase8` runs the TypeScript and contract checks, starts local PostgreSQL if needed, applies Prisma migrations, and runs a real Anvil-to-PostgreSQL event-indexer integration scenario. The scenario uses actual local test-ETH transactions and verifies confirmation gating, restart/replay idempotence, API pagination, journal balance, reconciliation, and a controlled reorganization. It does not use Base Sepolia or establish deployment readiness.
 
