@@ -225,7 +225,7 @@ export function createDishonestTraceScenario(): DishonestTraceScenario {
   });
 }
 
-function toContractProof(proof: StateProofArtifact): Phase5EndpointProof {
+export function toContractProof(proof: StateProofArtifact): Phase5EndpointProof {
   return Object.freeze({
     state: {
       pc: proof.state.pc,

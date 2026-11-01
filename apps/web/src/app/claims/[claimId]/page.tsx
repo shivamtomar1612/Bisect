@@ -152,6 +152,9 @@ export default async function ClaimDetailPage({
           <Link className="text-link" href={`/disputes?q=${claim.claimId}`}>
             Explore disputes
           </Link>
+          <Link className="text-link" href={`/challenge/${claim.claimId}`}>
+            Independently verify or challenge
+          </Link>
         </div>
         {claim.disputes.length ? (
           <ul className="associated-list">

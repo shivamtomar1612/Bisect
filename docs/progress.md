@@ -1,5 +1,11 @@
 # Development progress
 
+## 2026-11-01 — Phase 13 challenger interface
+
+- Added a claim challenger route with on-chain context inspection, independent VM/Merkle replay, exact-bond challenge submission, ordered-child bisection moves, terminal proof submission, timeout action and live game/credit views.
+- Added challenger evidence unit tests. `pnpm test` passed 61 tests; targeted Foundry dispute suite passed 10 tests; workspace typecheck, final production build, 2 Chromium challenger-route tests and targeted formatting/lint passed. The existing isolated Anvil dispute walkthrough mined 21 real transactions across 6 rounds with a challenger victory and actual withdrawal. Repository-wide lint/format remain blocked by pre-existing CRLF checkout formatting in 149 files.
+- No Base Sepolia registry address or published prover trace is configured; a real browser dispute and indexed financial-history walkthrough cannot be claimed. See [phase-13-report.md](phase-13-report.md).
+
 ## 2026-11-01 — Phase 12 wallet and account ledger implementation
 
 - Added external wallet connection and chain switching, live contract-backed claim submission and pull withdrawal, pending/confirmed/reverted transaction states, and exact wei account views.
